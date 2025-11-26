@@ -7,7 +7,7 @@
   --hover-bg-color: #f5f5f5;
 
   --max-content-width: 900px;
-  --header-height: 64px;
+  --header-height: 120px;
   --footer-height: 40px;
   --tree-indent: 18px;
 }
@@ -42,7 +42,7 @@ body {
 }
 
 #site-logo {
-  height: 40px;
+  height: 96px;
   width: auto;
   display: block;
 }
@@ -169,12 +169,12 @@ body {
   }
 
   #site-header {
-    height: 56px;
+    height: 96px;
     padding-inline: 12px;
   }
 
   #site-logo {
-    height: 32px;
+    height: 68px;
   }
 
   #site-footer {
