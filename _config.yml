@@ -1,5 +1,0 @@
-title: MIT MnC Resource Hub
-baseurl: "/mitm-mnc-resource-hub"  # important for project pages
-url: "https://bafnatirtham.github.io"
-markdown: kramdown
-theme: jekyll-theme-hacker

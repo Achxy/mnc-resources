@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Class Resources</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="preload" href="/resources-manifest.json" as="fetch" crossorigin="anonymous" />
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <header id="site-header">
+      <div id="logo-area">
+        <img src="" alt="Class logo" id="site-logo" />
+      </div>
+    </header>
+    <main id="app" aria-label="Class resources">
+      <section id="content-panel">
+        <h1 id="content-title">Contents</h1>
+        <div id="tree-container" role="tree" aria-label="Contents tree"></div>
+      </section>
+    </main>
+    <footer id="site-footer">
+      <p id="footer-text">
+        Designed and maintained by Achyuth Jayadevan
+      </p>
+    </footer>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
