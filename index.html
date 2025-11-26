@@ -5,12 +5,20 @@
     <title>Class Resources</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="preload" href="/resources-manifest.json" as="fetch" crossorigin="anonymous" />
+    <link rel="preload" href="/assets/mnc-logo.png" as="image" />
     <link rel="stylesheet" href="/src/styles.css" />
   </head>
-  <body>
+  <body data-loading="true">
     <header id="site-header">
       <div id="logo-area">
-        <img src="" alt="Class logo" id="site-logo" />
+        <img
+          id="site-logo"
+          src="/assets/mnc-logo.png"
+          alt="Class logo"
+          width="40"
+          height="40"
+          decoding="async"
+        />
       </div>
     </header>
     <main id="app" aria-label="Class resources">

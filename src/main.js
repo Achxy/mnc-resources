@@ -180,13 +180,29 @@ const renderTree = (children) => {
 };
 
 const init = async () => {
+  // Mark the app as loading so the main content is hidden until everything is ready
+  document.body.dataset.loading = "true";
+
   registerServiceWorker();
   try {
     const manifest = await fetchManifest();
     renderTree(manifest.children || []);
-    prefetchCoursePlanPdfs(manifest);
+
+    // Main UI is ready – show the content panel
+    document.body.dataset.loading = "false";
+
+    // Defer heavy PDF prefetch until after initial paint
+    const startPrefetch = () => prefetchCoursePlanPdfs(manifest);
+
+    if ("requestIdleCallback" in window) {
+      requestIdleCallback(startPrefetch);
+    } else {
+      window.addEventListener("load", startPrefetch, { once: true });
+    }
   } catch (error) {
     console.error("Unable to initialize app", error);
+    // Even on error, avoid leaving the page in a permanently hidden state
+    document.body.dataset.loading = "false";
   }
 };
 
