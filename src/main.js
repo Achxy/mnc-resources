@@ -333,7 +333,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // If the user is on a mobile device, do not load the app – show plaintext only.
   if (isMobileDevice()) {
     if (document.body) {
-      document.body.innerHTML = "I haven't got time to develop the mobile version yet";
+      document.body.innerHTML = "I haven't got the time to develop the mobile version yet.";
     }
     return;
   }
