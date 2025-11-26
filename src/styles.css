@@ -10,6 +10,10 @@
   --header-height: 120px;
   --footer-height: 40px;
   --tree-indent: 18px;
+  --tree-row-odd: rgba(0, 0, 0, 0.06);
+  --tree-row-even: rgba(0, 0, 0, 0.12);
+  --tree-group-border: rgba(0, 0, 0, 0.18);
+  --tree-connector-color: rgba(0, 0, 0, 0.35);
 }
 
 *,
@@ -92,15 +96,16 @@ body {
   display: flex;
   align-items: center;
   cursor: pointer;
-  padding: 2px 4px;
+  padding: 4px 6px;
+  width: 100%;
+  border-left: 1px solid var(--tree-group-border);
+  border-right: 1px solid var(--tree-group-border);
+  border-radius: 6px;
+  position: relative;
 }
 
 .tree-item[role="treeitem"] {
   outline: none;
-}
-
-.tree-item:hover {
-  background-color: var(--hover-bg-color);
 }
 
 .tree-item-label {
@@ -119,6 +124,18 @@ body {
   padding-left: 0;
   margin-top: 2px;
   margin-bottom: 2px;
+}
+
+.tree-item.striped-odd {
+  background-color: var(--tree-row-odd);
+}
+
+.tree-item.striped-even {
+  background-color: var(--tree-row-even);
+}
+
+.tree-children > .tree-item:hover {
+  background-color: var(--hover-bg-color);
 }
 
 .tree-toggle-indicator {

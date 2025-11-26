@@ -210,6 +210,8 @@ const toggleDirectory = (itemElement, directoryNode) => {
   } else if (isChildList && childList) {
     childList.hidden = true;
   }
+
+  applyTreeStriping();
 };
 
 const createDirectoryItem = (node) => {
@@ -300,6 +302,34 @@ const renderTree = (children) => {
   treeContainer.innerHTML = "";
   const rootList = createChildrenList(children);
   treeContainer.appendChild(rootList);
+  applyTreeStriping();
+};
+
+const applyTreeStriping = () => {
+  if (!treeContainer) return;
+  const items = treeContainer.querySelectorAll(".tree-item");
+  let visibleIndex = 0;
+
+  items.forEach((item) => {
+    item.classList.remove("striped-odd", "striped-even");
+
+    const hiddenAncestor = item.closest(".tree-children[hidden]");
+    if (hiddenAncestor) {
+      return;
+    }
+
+    // Offset parent will be null if the element (or a parent) is display: none
+    if (item.offsetParent === null) {
+      return;
+    }
+
+    if (visibleIndex % 2 === 0) {
+      item.classList.add("striped-odd");
+    } else {
+      item.classList.add("striped-even");
+    }
+    visibleIndex += 1;
+  });
 };
 
 const init = async () => {
