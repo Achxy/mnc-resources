@@ -41,7 +41,7 @@ const COURSE_PLAN_KEYWORD = "course plan";
 
 const registerServiceWorker = () => {
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/sw.js").catch(() => {});
+    navigator.serviceWorker.register("/sw.js").catch(() => { });
   }
 };
 
@@ -55,56 +55,7 @@ const fetchManifest = async () => {
 
 const isPdfFile = (node) => node.type === "file" && node.extension === "pdf";
 
-const prefetchPdfs = (pdfNodes) => {
-  pdfNodes.forEach((pdf) => {
-    fetch(pdf.path, { method: "GET" }).catch(() => {});
-  });
-};
-
-const collectNearbyPdfNodes = (directoryNode) => {
-  const found = [];
-  const children = directoryNode.children || [];
-  children.forEach((child) => {
-    if (isPdfFile(child)) {
-      found.push(child);
-    } else if (child.type === "directory" && Array.isArray(child.children)) {
-      child.children.forEach((grandChild) => {
-        if (isPdfFile(grandChild)) {
-          found.push(grandChild);
-        }
-      });
-    }
-  });
-  return found;
-};
-
-const prefetchNearbyPdfs = (directoryNode) => {
-  const pdfNodes = collectNearbyPdfNodes(directoryNode);
-  if (pdfNodes.length) {
-    prefetchPdfs(pdfNodes);
-  }
-};
-
-const prefetchCoursePlanPdfs = (manifestRoot) => {
-  const stack = [...(manifestRoot.children || [])];
-  const targets = [];
-
-  while (stack.length) {
-    const node = stack.pop();
-    if (node.type === "file") {
-      if (isPdfFile(node) && node.name.toLowerCase().includes(COURSE_PLAN_KEYWORD)) {
-        targets.push(node);
-      }
-    } else if (node.type === "directory" && Array.isArray(node.children)) {
-      stack.push(...node.children);
-    }
-  }
-
-  if (targets.length) {
-    prefetchPdfs(targets);
-  }
-};
-
+const CACHE_NAME = "mnc-resource-cache-v1";
 const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"]);
 
 const clearPreview = () => {
@@ -118,6 +69,13 @@ const clearPreview = () => {
 const ensurePlaceholderVisible = (visible) => {
   if (!previewPlaceholder) return;
   previewPlaceholder.style.display = visible ? "" : "none";
+};
+
+const updatePreviewStatus = (message) => {
+  const statusEl = document.getElementById("preview-status");
+  if (statusEl) {
+    statusEl.textContent = message;
+  }
 };
 
 const buildFolderTreeLines = (node, indent = "") => {
@@ -135,7 +93,7 @@ const buildFolderTreeLines = (node, indent = "") => {
   return lines;
 };
 
-const showPreviewForNode = (node) => {
+const showPreviewForNode = async (node) => {
   if (!previewPane) return;
 
   clearPreview();
@@ -151,22 +109,55 @@ const showPreviewForNode = (node) => {
     lines.push(...buildFolderTreeLines(node, ""));
     pre.textContent = lines.join("\n");
     container.appendChild(pre);
-    previewPane.appendChild(container);
+    previewPane.insertBefore(container, document.getElementById("preview-status"));
     ensurePlaceholderVisible(false);
+    updatePreviewStatus(""); // No status for directories
     return;
   }
 
   // File preview
   if (node.type === "file") {
+    const startTime = performance.now();
     const ext = node.extension ? node.extension.toLowerCase() : "";
+    let isCached = false;
+
+    try {
+      const cache = await caches.open(CACHE_NAME);
+      const cachedResponse = await cache.match(node.path);
+      if (cachedResponse) {
+        isCached = true;
+      }
+    } catch (e) {
+      console.warn("Cache check failed", e);
+    }
+
+    const reportTime = () => {
+      const duration = Math.round(performance.now() - startTime);
+      if (isCached) {
+        updatePreviewStatus(`Preview restored via passive local-cache hydration. (${duration}ms)`);
+      } else {
+        updatePreviewStatus(`Preview loaded via active network fetch. (${duration}ms)`);
+      }
+    };
+
+    if (isCached) {
+      // If cached, we assume it's basically instant or we just report the check time + render setup
+      reportTime();
+    } else {
+      updatePreviewStatus("Actively loading asset...");
+    }
 
     if (isPdfFile(node)) {
       const iframe = document.createElement("iframe");
       iframe.src = node.path;
       iframe.setAttribute("title", node.name);
       container.appendChild(iframe);
-      previewPane.appendChild(container);
+      previewPane.insertBefore(container, document.getElementById("preview-status"));
       ensurePlaceholderVisible(false);
+
+      if (!isCached) {
+        iframe.onload = () => reportTime();
+      }
       return;
     }
 
@@ -175,8 +166,12 @@ const showPreviewForNode = (node) => {
       img.src = node.path;
       img.alt = node.name;
       container.appendChild(img);
-      previewPane.appendChild(container);
+      previewPane.insertBefore(container, document.getElementById("preview-status"));
       ensurePlaceholderVisible(false);
+
+      if (!isCached) {
+        img.onload = () => reportTime();
+      }
       return;
     }
   }
@@ -185,8 +180,9 @@ const showPreviewForNode = (node) => {
   const fallback = document.createElement("p");
   fallback.textContent = "No preview available for this item.";
   container.appendChild(fallback);
-  previewPane.appendChild(container);
+  previewPane.insertBefore(container, document.getElementById("preview-status"));
   ensurePlaceholderVisible(false);
+  updatePreviewStatus("");
 };
 
 const toggleDirectory = (itemElement, directoryNode) => {
@@ -206,7 +202,8 @@ const toggleDirectory = (itemElement, directoryNode) => {
     } else {
       childList.hidden = false;
     }
-    prefetchNearbyPdfs(directoryNode);
+    // Priority load nearby files when expanded
+    queuePriorityAssets(directoryNode);
   } else if (isChildList && childList) {
     childList.hidden = true;
   }
@@ -332,6 +329,73 @@ const applyTreeStriping = () => {
   });
 };
 
+// --- Passive Loading Logic ---
+
+let assetQueue = [];
+let isProcessingQueue = false;
+
+const collectAllAssets = (nodes) => {
+  const assets = [];
+  const stack = [...nodes];
+  while (stack.length) {
+    const node = stack.pop();
+    if (node.type === "file") {
+      assets.push(node);
+    } else if (node.children) {
+      stack.push(...node.children);
+    }
+  }
+  return assets;
+};
+
+const queuePriorityAssets = (directoryNode) => {
+  // Add assets from this directory to the FRONT of the queue
+  const nearby = collectAllAssets(directoryNode.children || []);
+  // Remove duplicates if they are already in queue (optional optimization)
+  // For simplicity, just unshift them. Set might be better but order matters.
+  // Let's just unshift.
+  assetQueue.unshift(...nearby);
+  if (!isProcessingQueue) {
+    processAssetQueue();
+  }
+};
+
+const processAssetQueue = async () => {
+  if (assetQueue.length === 0) {
+    isProcessingQueue = false;
+    return;
+  }
+  isProcessingQueue = true;
+
+  const processChunk = async (deadline) => {
+    while (assetQueue.length > 0 && deadline.timeRemaining() > 0) {
+      const node = assetQueue.shift();
+      try {
+        const cache = await caches.open(CACHE_NAME);
+        const match = await cache.match(node.path);
+        if (!match) {
+          // Fetch and cache
+          // console.log("Passive loading:", node.path);
+          const response = await fetch(node.path);
+          if (response.ok) {
+            await cache.put(node.path, response);
+          }
+        }
+      } catch (err) {
+        console.warn("Passive load failed for", node.path, err);
+      }
+    }
+
+    if (assetQueue.length > 0) {
+      requestIdleCallback(processChunk);
+    } else {
+      isProcessingQueue = false;
+    }
+  };
+
+  requestIdleCallback(processChunk);
+};
+
 const init = async () => {
   // Mark the app as loading so the main content is hidden until everything is ready
   document.body.dataset.loading = "true";
@@ -344,14 +408,17 @@ const init = async () => {
     // Main UI is ready – show the content panel
     document.body.dataset.loading = "false";
 
-    // Defer heavy PDF prefetch until after initial paint
-    const startPrefetch = () => prefetchCoursePlanPdfs(manifest);
+    // Start passive loading of ALL assets
+    const allAssets = collectAllAssets(manifest.children || []);
+    assetQueue.push(...allAssets);
 
     if ("requestIdleCallback" in window) {
-      requestIdleCallback(startPrefetch);
+      requestIdleCallback(processAssetQueue);
     } else {
-      window.addEventListener("load", startPrefetch, { once: true });
+      // Fallback for browsers without requestIdleCallback
+      setTimeout(processAssetQueue, 1000);
     }
+
   } catch (error) {
     console.error("Unable to initialize app", error);
     // Even on error, avoid leaving the page in a permanently hidden state

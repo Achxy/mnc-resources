@@ -116,7 +116,7 @@ body {
   word-break: break-word;
 }
 
-.tree-item-folder > .tree-item-label {
+.tree-item-folder>.tree-item-label {
   font-weight: 600;
 }
 
@@ -135,7 +135,7 @@ body {
   background-color: var(--tree-row-even);
 }
 
-.tree-children > .tree-item:hover {
+.tree-children>.tree-item:hover {
   background-color: var(--hover-bg-color);
 }
 
@@ -152,7 +152,7 @@ body {
   content: "▸";
 }
 
-.tree-item[aria-expanded="true"] > .tree-toggle-indicator::before {
+.tree-item[aria-expanded="true"]>.tree-toggle-indicator::before {
   content: "▾";
 }
 
@@ -314,4 +314,17 @@ body[data-layout="tree-only"] #tree-pane {
   margin-top: 0.75rem;
   font-size: 0.85rem;
   opacity: 0.75;
+}
+
+.preview-status {
+  margin-top: auto;
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  color: var(--muted-text-color);
+  z-index: 10;
+  /* Removed box styling as requested */
 }
