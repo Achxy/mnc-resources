@@ -348,7 +348,22 @@ const collectAllAssets = (nodes) => {
   return assets;
 };
 
+const shouldPassiveLoad = () => {
+  if ("connection" in navigator) {
+    const conn = navigator.connection;
+    if (conn.saveData) {
+      return false;
+    }
+    if (conn.effectiveType === "2g" || conn.effectiveType === "slow-2g") {
+      return false;
+    }
+  }
+  return true;
+};
+
 const queuePriorityAssets = (directoryNode) => {
+  if (!shouldPassiveLoad()) return;
+
   // Add assets from this directory to the FRONT of the queue
   const nearby = collectAllAssets(directoryNode.children || []);
   // Remove duplicates if they are already in queue (optional optimization)
@@ -359,6 +374,8 @@ const queuePriorityAssets = (directoryNode) => {
     processAssetQueue();
   }
 };
+
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const processAssetQueue = async () => {
   if (assetQueue.length === 0) {
@@ -380,6 +397,8 @@ const processAssetQueue = async () => {
           if (response.ok) {
             await cache.put(node.path, response);
           }
+          // Throttle: wait 200ms between requests to prevent server overload
+          await delay(200);
         }
       } catch (err) {
         console.warn("Passive load failed for", node.path, err);
@@ -408,15 +427,19 @@ const init = async () => {
     // Main UI is ready – show the content panel
     document.body.dataset.loading = "false";
 
-    // Start passive loading of ALL assets
-    const allAssets = collectAllAssets(manifest.children || []);
-    assetQueue.push(...allAssets);
+    // Start passive loading of ALL assets ONLY if connection allows
+    if (shouldPassiveLoad()) {
+      const allAssets = collectAllAssets(manifest.children || []);
+      assetQueue.push(...allAssets);
 
-    if ("requestIdleCallback" in window) {
-      requestIdleCallback(processAssetQueue);
+      if ("requestIdleCallback" in window) {
+        requestIdleCallback(processAssetQueue);
+      } else {
+        // Fallback for browsers without requestIdleCallback
+        setTimeout(processAssetQueue, 1000);
+      }
     } else {
-      // Fallback for browsers without requestIdleCallback
-      setTimeout(processAssetQueue, 1000);
+      console.log("Passive loading disabled due to connection constraints.");
     }
 
   } catch (error) {
