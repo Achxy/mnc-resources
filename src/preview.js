@@ -126,8 +126,3 @@ export const showPreviewForNode = async (node) => {
   updatePreviewStatus("");
 };
 
-export const restorePlaceholder = () => {
-  clearPreview();
-  ensurePlaceholderVisible(true);
-  updatePreviewStatus("");
-};

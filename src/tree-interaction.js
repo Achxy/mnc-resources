@@ -1,5 +1,5 @@
 import { nodesByPath, toggleDirectory } from "./tree.js";
-import { showPreviewForNode, restorePlaceholder } from "./preview.js";
+import { showPreviewForNode } from "./preview.js";
 
 let treeContainer;
 
@@ -102,9 +102,8 @@ export const setupTreeDelegation = (container) => {
     if (node) showPreviewForNode(node);
   });
 
-  // Restore placeholder when mouse leaves the tree
+  // Reset hover tracking when mouse leaves the tree (preview stays visible)
   treeContainer.addEventListener("mouseleave", () => {
     lastHoveredPath = null;
-    restorePlaceholder();
   });
 };
