@@ -1,17 +1,7 @@
 import { CACHE_NAME } from "./config.js";
 import { isCrossOrigin } from "./url.js";
 
-export const openCache = () => caches.open(CACHE_NAME);
-
-export const checkCached = async (url) => {
-  try {
-    const cache = await openCache();
-    const match = await cache.match(url);
-    return !!match;
-  } catch {
-    return false;
-  }
-};
+const openCache = () => caches.open(CACHE_NAME);
 
 export const fetchAndCache = async (url) => {
   const cache = await openCache();

@@ -1,6 +1,5 @@
-import { IMAGE_EXTENSIONS } from "./config.js";
-import { resolveContentUrl } from "./url.js";
-import { checkCached } from "./cache.js";
+import { IMAGE_EXTENSIONS, CACHE_NAME } from "./config.js";
+import { resolveContentUrl, isCrossOrigin } from "./url.js";
 
 let previewPane;
 let previewPlaceholder;
@@ -31,6 +30,30 @@ const updatePreviewStatus = (message) => {
   if (previewStatusEl) previewStatusEl.textContent = message;
 };
 
+/**
+ * Fetch a resource via Cache API (cache-first), falling back to network.
+ * Returns { blob, fromCache, duration } or null on failure.
+ * Timing covers the full wait: cache lookup or network download + body read.
+ */
+const fetchResource = async (url) => {
+  const cache = await caches.open(CACHE_NAME);
+  const start = performance.now();
+
+  const cached = await cache.match(url);
+  if (cached) {
+    const blob = await cached.blob();
+    return { blob, fromCache: true, duration: Math.round(performance.now() - start) };
+  }
+
+  const opts = isCrossOrigin() ? { mode: "cors" } : {};
+  const response = await fetch(url, opts);
+  if (!response.ok) return null;
+
+  const blob = await response.clone().blob();
+  cache.put(url, response);
+  return { blob, fromCache: false, duration: Math.round(performance.now() - start) };
+};
+
 const buildFolderTreeLines = (node, indent = "") => {
   const lines = [];
   const children = node.children || [];
@@ -54,6 +77,7 @@ export const showPreviewForNode = async (node) => {
   const thisGeneration = ++previewGeneration;
 
   clearPreview();
+  updatePreviewStatus("");
 
   const container = document.createElement("div");
   container.className = "preview-content";
@@ -66,55 +90,52 @@ export const showPreviewForNode = async (node) => {
     container.appendChild(pre);
     previewPane.insertBefore(container, previewStatusEl);
     ensurePlaceholderVisible(false);
-    updatePreviewStatus("");
     return;
   }
 
   if (node.type === "file") {
     const ext = node.extension || "";
     const contentUrl = resolveContentUrl(node.path);
-    let isCached = await checkCached(contentUrl);
 
-    // Abort if a newer hover triggered a different preview
+    updatePreviewStatus("Loading\u2026");
+
+    const result = await fetchResource(contentUrl);
+
     if (thisGeneration !== previewGeneration) return;
 
-    const reportTime = (startTime) => {
-      if (thisGeneration !== previewGeneration) return;
-      const duration = Math.round(performance.now() - startTime);
-      updatePreviewStatus(
-        isCached
-          ? `Preview restored from cache. (${duration}ms)`
-          : `Preview loaded from network. (${duration}ms)`
-      );
-    };
-
-    if (!isCached) {
-      updatePreviewStatus("Loading...");
+    if (!result) {
+      updatePreviewStatus("Failed to load preview.");
+      ensurePlaceholderVisible(false);
+      return;
     }
 
+    const { blob, fromCache, duration } = result;
+    const blobUrl = URL.createObjectURL(blob);
+    const source = fromCache ? "cache" : "network";
+
     if (isPdfFile(node)) {
-      const loadStart = performance.now();
       const iframe = document.createElement("iframe");
       iframe.setAttribute("title", node.name);
-      iframe.onload = () => reportTime(loadStart);
-      iframe.src = contentUrl;
+      iframe.src = blobUrl;
       container.appendChild(iframe);
       previewPane.insertBefore(container, previewStatusEl);
       ensurePlaceholderVisible(false);
+      updatePreviewStatus(`Loaded from ${source}. (${duration}ms)`);
       return;
     }
 
     if (IMAGE_EXTENSIONS.has(ext)) {
-      const loadStart = performance.now();
       const img = document.createElement("img");
       img.alt = node.name;
-      img.onload = () => reportTime(loadStart);
-      img.src = contentUrl;
+      img.src = blobUrl;
       container.appendChild(img);
       previewPane.insertBefore(container, previewStatusEl);
       ensurePlaceholderVisible(false);
+      updatePreviewStatus(`Loaded from ${source}. (${duration}ms)`);
       return;
     }
+
+    URL.revokeObjectURL(blobUrl);
   }
 
   // Fallback: unsupported preview
@@ -125,4 +146,3 @@ export const showPreviewForNode = async (node) => {
   ensurePlaceholderVisible(false);
   updatePreviewStatus("");
 };
-
