@@ -1,4 +1,4 @@
 .DS_Store
 node_modules
-public/resources-manifest.json
 dist
+.env

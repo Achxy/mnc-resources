@@ -10,4 +10,13 @@ export default defineConfig({
       input: "index.html",
     },
   },
+  server: {
+    proxy: {
+      "/contents": {
+        target: process.env.VITE_CDN_BASE_URL || "https://cdn.example.com",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/contents\//, "/"),
+      },
+    },
+  },
 });

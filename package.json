@@ -5,11 +5,17 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build:manifest": "node ./scripts/generateManifest.mjs",
-    "build": "npm run build:manifest && vite build",
-    "preview": "vite preview"
+    "build": "vite build",
+    "preview": "vite preview",
+    "r2:sync": "node ./scripts/r2-sync.mjs",
+    "r2:manifest": "node ./scripts/r2-manifest.mjs",
+    "r2:deploy": "npm run r2:sync && npm run r2:manifest"
   },
   "devDependencies": {
-    "vite": "^5.0.0"
+    "vite": "^5.0.0",
+    "wrangler": "^4.67.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.995.0"
   }
 }

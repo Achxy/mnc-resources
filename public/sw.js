@@ -1,12 +1,11 @@
-const CACHE_VERSION = "v4";
+const CACHE_VERSION = "v5";
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
-const RESOURCE_CACHE = "mnc-resource-cache-v1";
 
-const STATIC_ASSETS = ["/index.html", "/resources-manifest.json"];
+const PRECACHE_URLS = ["/index.html"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(STATIC_CACHE).then((cache) => cache.addAll(STATIC_ASSETS))
+    caches.open(STATIC_CACHE).then((cache) => cache.addAll(PRECACHE_URLS))
   );
   self.skipWaiting();
 });
@@ -18,7 +17,7 @@ self.addEventListener("activate", (event) => {
         keys
           .filter((key) =>
             (key.startsWith("static-") && key !== STATIC_CACHE) ||
-            (key.startsWith("mnc-resource-cache-") && key !== RESOURCE_CACHE)
+            key.startsWith("mnc-resource-cache-")
           )
           .map((key) => caches.delete(key))
       )
@@ -26,49 +25,28 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-const cacheFirstResource = async (request) => {
-  const cache = await caches.open(RESOURCE_CACHE);
-  const cached = await cache.match(request);
-  if (cached) {
-    return cached;
-  }
-
-  const response = await fetch(request);
-  if (response && response.ok) {
-    cache.put(request, response.clone());
-  }
-  return response;
-};
-
-const networkFirst = async (request) => {
-  const cache = await caches.open(STATIC_CACHE);
-  try {
-    const response = await fetch(request);
-    if (response && response.ok) {
-      cache.put(request, response.clone());
-    }
-    return response;
-  } catch (error) {
-    const cached = await cache.match(request);
-    if (cached) {
-      return cached;
-    }
-    throw error;
-  }
-};
-
 self.addEventListener("fetch", (event) => {
-  if (event.request.method !== "GET") {
-    return;
-  }
+  const { request } = event;
+  if (request.method !== "GET") return;
 
-  const url = new URL(event.request.url);
+  // Only handle same-origin requests — R2 content is cached by main thread
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
 
-  // All content files (PDFs, images, etc.) use cache-first via shared resource cache
-  if (url.pathname.startsWith("/contents/")) {
-    event.respondWith(cacheFirstResource(event.request));
-    return;
-  }
-
-  event.respondWith(networkFirst(event.request));
+  event.respondWith(
+    (async () => {
+      const cache = await caches.open(STATIC_CACHE);
+      try {
+        const response = await fetch(request);
+        if (response && response.ok) {
+          cache.put(request, response.clone());
+        }
+        return response;
+      } catch {
+        const cached = await cache.match(request);
+        if (cached) return cached;
+        throw new Error("Network unavailable and no cache match");
+      }
+    })()
+  );
 });
