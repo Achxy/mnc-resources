@@ -14,6 +14,11 @@ output "pages_subdomain" {
 }
 
 output "cdn_hostname" {
-  description = "CDN hostname for content delivery"
-  value       = cloudflare_record.cdn_cname.hostname
+  description = "CDN hostname for content delivery (R2-managed DNS record)"
+  value       = "cdn.mnc.achus.casa"
+}
+
+output "app_hostname" {
+  description = "App custom domain"
+  value       = cloudflare_pages_domain.app.domain
 }

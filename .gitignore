@@ -8,6 +8,6 @@ cdn-worker/.wrangler
 infra/.terraform/
 infra/*.tfstate
 infra/*.tfstate.backup
-infra/.terraform.lock.hcl
+# Note: .terraform.lock.hcl IS committed (pins provider versions)
 infra/terraform.tfvars
 infra/*.tfplan
