@@ -3,11 +3,12 @@ import path from "path";
 
 const ROOT_LABEL = "Contents";
 const ROOT_WEB_PATH = "/contents";
-const CONTENTS_DIR = path.resolve("contents");
-const OUTPUT_FILE = path.resolve("public/resources-manifest.json");
+const PROJECT_ROOT = path.resolve(import.meta.dirname, "..");
+const CONTENTS_DIR = path.join(PROJECT_ROOT, "contents");
+const OUTPUT_FILE = path.join(PROJECT_ROOT, "public", "resources-manifest.json");
 const SITEIGNORE_PATH = path.join(CONTENTS_DIR, ".siteignore");
 
-const collator = new Intl.Collator(undefined, { sensitivity: "base", numeric: true });
+const collator = new Intl.Collator("en", { sensitivity: "base", numeric: true });
 
 const sortEntries = (entries) =>
   entries.slice().sort((a, b) => {
@@ -87,6 +88,7 @@ const parseSiteignore = (rawRules) => {
     .map((line) => {
       if (!line.trim()) return null;
       let rule = line;
+      rule = rule.trimEnd();
 
       if (rule.startsWith("\\") && (rule[1] === "#" || rule[1] === "!")) {
         rule = rule.slice(1);
@@ -156,7 +158,7 @@ const buildChildren = async (fsDirPath, webDirPath, relativeDirPath, isIgnored) 
       continue;
     }
 
-    if (entry.isDirectory()) {
+    if (entry.isDirectory() && !entry.isSymbolicLink()) {
       children.push({
         type: "directory",
         name: entry.name,
@@ -177,7 +179,10 @@ const buildChildren = async (fsDirPath, webDirPath, relativeDirPath, isIgnored) 
 };
 
 const generateManifest = async () => {
-  const stats = await fs.stat(CONTENTS_DIR).catch(() => null);
+  const stats = await fs.stat(CONTENTS_DIR).catch((err) => {
+    if (err.code === "ENOENT") return null;
+    throw err;
+  });
   if (!stats || !stats.isDirectory()) {
     throw new Error("`contents` directory not found or is not a directory.");
   }
@@ -192,7 +197,7 @@ const generateManifest = async () => {
   };
 
   await fs.mkdir(path.dirname(OUTPUT_FILE), { recursive: true });
-  await fs.writeFile(OUTPUT_FILE, JSON.stringify(manifest, null, 2), "utf8");
+  await fs.writeFile(OUTPUT_FILE, JSON.stringify(manifest), "utf8");
   console.log(`Manifest written to ${OUTPUT_FILE}`);
 };
 

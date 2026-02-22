@@ -4,12 +4,17 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm ci || npm install
+RUN npm ci
 
 COPY vite.config.js ./
 COPY index.html ./
 COPY src ./src
 COPY public ./public
+# NOTE: contents/ is large (~507MB) but must be present in the builder stage
+# because the manifest generation script (run during `npm run build`) needs the
+# actual directory structure to produce the asset manifest. This means the data
+# is copied twice (once here, once into the final Nginx stage). Optimizing this
+# would require changing the manifest script to work without the full tree.
 COPY contents ./contents
 COPY scripts ./scripts
 
