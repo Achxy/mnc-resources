@@ -7,9 +7,11 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "r2:sync": "node ./scripts/r2-sync.mjs",
-    "r2:manifest": "node ./scripts/r2-manifest.mjs",
-    "r2:deploy": "npm run r2:sync && npm run r2:manifest"
+    "r2:sync": "node --env-file=.env ./scripts/r2-sync.mjs",
+    "r2:manifest": "node --env-file=.env ./scripts/r2-manifest.mjs",
+    "r2:deploy": "npm run r2:sync && npm run r2:manifest",
+    "cdn:dev": "wrangler dev --config cdn-worker/wrangler.toml",
+    "cdn:deploy": "wrangler deploy --config cdn-worker/wrangler.toml"
   },
   "devDependencies": {
     "vite": "^5.0.0",

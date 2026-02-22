@@ -13,7 +13,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/contents": {
-        target: process.env.VITE_CDN_BASE_URL || "https://cdn.example.com",
+        target: "https://cdn.mnc.achus.casa",
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/contents\//, "/"),
       },
