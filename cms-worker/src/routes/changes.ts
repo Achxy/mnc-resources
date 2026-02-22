@@ -94,6 +94,20 @@ changes.post("/delete", async (c) => {
   return c.json({ id, status: "pending" }, 201);
 });
 
+// Count own change requests by status
+changes.get("/count", async (c) => {
+  const user = c.get("user");
+  const status = c.req.query("status") || "pending";
+
+  const result = await c.env.DB.prepare(
+    "SELECT COUNT(*) as count FROM change_requests WHERE user_id = ? AND status = ?"
+  )
+    .bind(user.id, status)
+    .first<{ count: number }>();
+
+  return c.json({ count: result?.count ?? 0 });
+});
+
 // List own change requests
 changes.get("/", async (c) => {
   const user = c.get("user");

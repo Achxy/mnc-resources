@@ -15,6 +15,15 @@ const admin = new Hono<AdminEnv>();
 
 admin.use("/*", requireAdmin);
 
+// Count pending change requests
+admin.get("/queue/count", async (c) => {
+  const result = await c.env.DB.prepare(
+    "SELECT COUNT(*) as count FROM change_requests WHERE status = 'pending'"
+  ).first<{ count: number }>();
+
+  return c.json({ count: result?.count ?? 0 });
+});
+
 // List pending change requests (admin queue)
 admin.get("/queue", async (c) => {
   const status = c.req.query("status") || "pending";

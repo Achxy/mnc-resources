@@ -12,6 +12,7 @@ import { showError } from "./error.js";
 import { initAuthUI } from "./auth-ui.js";
 import { initCmsUI, addCmsContextMenu } from "./cms-ui.js";
 import { isAdmin, onAuthChange } from "./auth.js";
+import { initCmsToolbar, destroyCmsToolbar } from "./cms-toolbar.js";
 
 const init = async (treeContainer) => {
   document.body.dataset.loading = "true";
@@ -31,6 +32,7 @@ const init = async (treeContainer) => {
 
 document.addEventListener("DOMContentLoaded", () => {
   const treeContainer = document.getElementById("tree-container");
+  const treePane = document.getElementById("tree-pane");
   const previewPane = document.getElementById("preview-pane");
   const previewPlaceholder = document.getElementById("preview-placeholder");
   const previewStatusEl = document.getElementById("preview-status");
@@ -52,13 +54,29 @@ document.addEventListener("DOMContentLoaded", () => {
   initCmsUI(modalContainer);
   addCmsContextMenu(treeContainer);
 
-  // Dynamically load admin UI for admins
+  // Tree refresh after publish
+  document.addEventListener("cms:manifest-changed", async () => {
+    try {
+      const manifest = await fetchManifest();
+      renderTree(manifest.children || []);
+    } catch (err) {
+      console.error("Failed to refresh tree after publish", err);
+    }
+  });
+
+  // Toolbar and admin panel on auth change
   onAuthChange((user) => {
-    if (user && isAdmin()) {
-      import("./admin-ui.js").then((m) => m.initAdminUI(modalContainer, adminPanel));
-      if (adminPanel) adminPanel.hidden = false;
+    if (user) {
+      initCmsToolbar(treePane, modalContainer, adminPanel);
+      if (isAdmin()) {
+        import("./admin-ui.js").then((m) => m.initAdminUI(modalContainer, adminPanel));
+      }
     } else {
-      if (adminPanel) adminPanel.hidden = true;
+      destroyCmsToolbar();
+      if (adminPanel) {
+        adminPanel.hidden = true;
+        adminPanel.innerHTML = "";
+      }
     }
   });
 

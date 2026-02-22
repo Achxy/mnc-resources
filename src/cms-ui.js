@@ -46,70 +46,174 @@ const closeModal = () => {
   modalContainer.hidden = true;
 };
 
-// Upload form
-export const showUploadForm = (targetDirectory = "/contents") => {
+const formatFileSize = (bytes) => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+// Multi-file upload modal
+export const showMultiUploadForm = (targetDirectory = "/contents", preloadedFiles = []) => {
   if (!getUser()) return;
 
   const modal = createModal(
-    "Upload File",
+    "Upload Files",
     `
     <form id="upload-form" class="auth-form">
       <label class="auth-label">
         Target Directory
         <input type="text" name="targetDir" value="${targetDirectory}" required class="auth-input" />
       </label>
-      <label class="auth-label">
-        File
-        <input type="file" name="file" required class="auth-input" />
-      </label>
+      <div class="upload-file-list" id="upload-file-list"></div>
+      <div class="upload-add-area" id="upload-add-area">
+        <button type="button" class="upload-add-btn" id="upload-add-btn">+ Add files</button>
+        <input type="file" multiple hidden id="upload-file-input" />
+      </div>
       <p id="upload-error" class="auth-error" hidden></p>
-      <p id="upload-success" class="auth-success" hidden></p>
-      <button type="submit" class="auth-submit">Submit for Review</button>
+      <button type="submit" class="auth-submit" id="upload-submit" disabled>Select files to upload</button>
     </form>
   `
   );
 
+  const fileList = modal.querySelector("#upload-file-list");
+  const fileInput = modal.querySelector("#upload-file-input");
+  const addBtn = modal.querySelector("#upload-add-btn");
+  const submitBtn = modal.querySelector("#upload-submit");
+  const errorEl = modal.querySelector("#upload-error");
+
+  // Track files with unique IDs
+  let files = [];
+  let nextId = 0;
+
+  const updateSubmitBtn = () => {
+    const count = files.length;
+    if (count === 0) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Select files to upload";
+    } else {
+      submitBtn.disabled = false;
+      submitBtn.textContent = `Submit for Review (${count} file${count > 1 ? "s" : ""})`;
+    }
+  };
+
+  const renderFileList = () => {
+    fileList.innerHTML = "";
+    files.forEach((entry) => {
+      const item = document.createElement("div");
+      item.className = "upload-file-item";
+      item.dataset.fileId = entry.id;
+      item.innerHTML = `
+        <div class="upload-file-info">
+          <span class="upload-file-name">${entry.file.name}</span>
+          <span class="upload-file-size">${formatFileSize(entry.file.size)}</span>
+        </div>
+        <div class="upload-file-progress" hidden>
+          <div class="upload-file-progress-bar"></div>
+        </div>
+        <button type="button" class="upload-file-remove" aria-label="Remove">&times;</button>
+      `;
+      item.querySelector(".upload-file-remove").addEventListener("click", () => {
+        files = files.filter((f) => f.id !== entry.id);
+        renderFileList();
+        updateSubmitBtn();
+      });
+      fileList.appendChild(item);
+    });
+  };
+
+  const addFiles = (newFiles) => {
+    for (const file of newFiles) {
+      files.push({ id: nextId++, file });
+    }
+    renderFileList();
+    updateSubmitBtn();
+  };
+
+  addBtn.addEventListener("click", () => fileInput.click());
+  fileInput.addEventListener("change", () => {
+    if (fileInput.files.length) addFiles(fileInput.files);
+    fileInput.value = "";
+  });
+
+  // Pre-load files from drag-and-drop
+  if (preloadedFiles.length) addFiles(preloadedFiles);
+
+  // Submit handler
   modal.querySelector("#upload-form").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const form = e.target;
-    const errorEl = form.querySelector("#upload-error");
-    const successEl = form.querySelector("#upload-success");
-    const submitBtn = form.querySelector(".auth-submit");
-    const file = form.file.files[0];
-    const targetDir = form.targetDir.value.replace(/\/$/, "");
+    if (!files.length) return;
 
-    if (!file) return;
-
+    const targetDir = modal.querySelector('[name="targetDir"]').value.replace(/\/$/, "");
     errorEl.hidden = true;
-    successEl.hidden = true;
     submitBtn.disabled = true;
     submitBtn.textContent = "Uploading...";
 
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("targetPath", `${targetDir}/${file.name}`);
+    // Disable remove buttons and add btn during upload
+    fileList.querySelectorAll(".upload-file-remove").forEach((btn) => (btn.disabled = true));
+    addBtn.disabled = true;
 
-      const res = await fetch(apiUrl("/api/changes/upload"), {
-        method: "POST",
-        credentials: "include",
-        body: formData,
+    let successCount = 0;
+    let failCount = 0;
+
+    const uploadFile = (entry) =>
+      new Promise((resolve) => {
+        const item = fileList.querySelector(`[data-file-id="${entry.id}"]`);
+        const progressWrap = item?.querySelector(".upload-file-progress");
+        const progressBar = item?.querySelector(".upload-file-progress-bar");
+        if (progressWrap) progressWrap.hidden = false;
+
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", apiUrl("/api/changes/upload"));
+        xhr.withCredentials = true;
+
+        xhr.upload.addEventListener("progress", (ev) => {
+          if (ev.lengthComputable && progressBar) {
+            progressBar.style.width = `${Math.round((ev.loaded / ev.total) * 100)}%`;
+          }
+        });
+
+        xhr.addEventListener("load", () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            successCount++;
+            if (item) item.classList.add("upload-success");
+          } else {
+            failCount++;
+            if (item) item.classList.add("upload-failed");
+          }
+          resolve();
+        });
+
+        xhr.addEventListener("error", () => {
+          failCount++;
+          if (item) item.classList.add("upload-failed");
+          resolve();
+        });
+
+        const formData = new FormData();
+        formData.append("file", entry.file);
+        formData.append("targetPath", `${targetDir}/${entry.file.name}`);
+        xhr.send(formData);
       });
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Upload failed");
-      }
+    // Upload sequentially to avoid overwhelming the server
+    for (const entry of files) {
+      await uploadFile(entry);
+    }
 
-      successEl.textContent = "Upload submitted for review!";
-      successEl.hidden = false;
-      form.reset();
-    } catch (err) {
-      errorEl.textContent = err.message;
+    // Summary
+    if (failCount > 0) {
+      errorEl.textContent = `${failCount} upload(s) failed. ${successCount} succeeded.`;
       errorEl.hidden = false;
-    } finally {
-      submitBtn.disabled = false;
-      submitBtn.textContent = "Submit for Review";
+    }
+
+    submitBtn.textContent =
+      failCount > 0
+        ? `Done (${successCount} ok, ${failCount} failed)`
+        : `Done (${successCount} uploaded)`;
+
+    // Refresh toolbar badges if available
+    if (typeof window.__refreshToolbarBadges === "function") {
+      window.__refreshToolbarBadges();
     }
   });
 };
@@ -210,7 +314,7 @@ export const addCmsContextMenu = (treeContainer) => {
       menu.remove();
 
       if (action === "upload") {
-        showUploadForm(path);
+        showMultiUploadForm(path);
       } else if (action === "rename") {
         showRenameForm(path);
       } else if (action === "delete") {
