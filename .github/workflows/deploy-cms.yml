@@ -1,11 +1,12 @@
-name: Deploy App to Cloudflare Pages
+name: Deploy CMS Worker
 
 on:
   push:
     branches:
       - main
-    paths-ignore:
-      - "contents/**"
+    paths:
+      - "cms-worker/**"
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -21,18 +22,13 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Install dependencies
+      - name: Install CMS worker dependencies
+        working-directory: cms-worker
         run: npm ci
 
-      - name: Build
-        run: npm run build
-        env:
-          VITE_CDN_BASE_URL: ${{ vars.CDN_BASE_URL }}
-          VITE_CMS_API_URL: ${{ vars.CMS_API_URL }}
-
-      - name: Deploy to Cloudflare Pages
+      - name: Deploy CMS Worker
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy dist --project-name=mnc-resources
+          command: deploy --config cms-worker/wrangler.toml

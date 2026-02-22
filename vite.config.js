@@ -23,6 +23,10 @@ export default defineConfig({
         target: R2_CDN_ORIGIN,
         changeOrigin: true,
       },
+      "/api": {
+        target: "http://localhost:8787",
+        changeOrigin: true,
+      },
     },
   },
 });

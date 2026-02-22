@@ -11,13 +11,16 @@
     "r2:manifest": "node --env-file=.env ./scripts/r2-manifest.mjs",
     "r2:deploy": "npm run r2:sync && npm run r2:manifest",
     "cdn:dev": "wrangler dev --config cdn-worker/wrangler.toml",
-    "cdn:deploy": "wrangler deploy --config cdn-worker/wrangler.toml"
+    "cdn:deploy": "wrangler deploy --config cdn-worker/wrangler.toml",
+    "cms:dev": "wrangler dev --config cms-worker/wrangler.toml",
+    "cms:deploy": "wrangler deploy --config cms-worker/wrangler.toml"
   },
   "devDependencies": {
     "vite": "^5.0.0",
     "wrangler": "^4.67.0"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.995.0"
+    "@aws-sdk/client-s3": "^3.995.0",
+    "better-auth": "^1.2.0"
   }
 }

@@ -1,0 +1,20 @@
+name = "mnc-cms"
+main = "src/index.ts"
+compatibility_date = "2025-02-20"
+compatibility_flags = ["nodejs_compat"]
+
+routes = [
+  { pattern = "cms.achus.casa/*", zone_name = "achus.casa" }
+]
+
+[vars]
+APP_ORIGIN = "https://mnc.achus.casa"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "mnc-cms"
+database_id = "ba9c1086-a7ed-4b59-9b6f-376d18afb050"
+
+[[r2_buckets]]
+binding = "R2_BUCKET"
+bucket_name = "mnc-resources"

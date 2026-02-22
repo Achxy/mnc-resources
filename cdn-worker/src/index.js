@@ -18,7 +18,7 @@ export default {
       return new Response("Method Not Allowed", { status: 405, headers: corsHeaders });
     }
 
-    if (!key) {
+    if (!key || key.startsWith("_staging/")) {
       return new Response("Not Found", { status: 404, headers: corsHeaders });
     }
 
