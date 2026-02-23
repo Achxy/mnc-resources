@@ -6,6 +6,7 @@ import { createAuthMiddleware } from "better-auth/api";
 import { APIError } from "better-auth";
 import { scryptSync, randomBytes, timingSafeEqual } from "node:crypto";
 import type { Env } from "./types";
+import { config } from "./types";
 import * as schema from "./auth-schema";
 import { verificationOtpEmail } from "./email-template";
 
@@ -97,7 +98,7 @@ export const createAuth = (env: Env) => {
   return betterAuth({
     database: drizzleAdapter(db, { provider: "sqlite" }),
     secret: env.BETTER_AUTH_SECRET,
-    baseURL: "https://cms.achus.casa",
+    baseURL: config.apiBaseUrl,
     basePath: "/api/auth",
     emailAndPassword: {
       enabled: true,
@@ -166,15 +167,13 @@ export const createAuth = (env: Env) => {
     advanced: {
       crossSubDomainCookies: {
         enabled: true,
-        domain: ".achus.casa",
+        domain: config.cookieDomain,
       },
     },
-    trustedOrigins: ["https://mnc.achus.casa"],
+    trustedOrigins: [config.appOrigin],
     plugins: [
       admin(),
       username(),
     ],
   });
 };
-
-export type Auth = ReturnType<typeof createAuth>;

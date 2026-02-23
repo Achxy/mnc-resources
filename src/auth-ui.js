@@ -10,8 +10,8 @@ import {
   sendResetOTP,
   resetWithOTP,
 } from "./auth.js";
-import { CMS_API_URL } from "./config.js";
-import { createModal, closeModal } from "./modal.js";
+import { apiUrl, apiFetch } from "./api.js";
+import { esc, createModal, closeModal } from "./modal.js";
 
 let authButton;
 
@@ -142,14 +142,10 @@ const showSignUpModal = () => {
     lookupBtn.textContent = "Looking up...";
 
     try {
-      const res = await fetch(
-        `${CMS_API_URL || ""}/api/roster/lookup`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ suffix }),
-        }
-      );
+      const res = await apiFetch("/api/roster/lookup", {
+        method: "POST",
+        body: JSON.stringify({ suffix }),
+      });
       const data = await res.json();
       if (!res.ok) {
         lookupError.hidden = false;
@@ -365,7 +361,7 @@ const showUserMenu = () => {
     user.name || "Account",
     `
     <div class="user-menu">
-      <p class="user-menu-email">${user.email.replace(/</g, "&lt;")}</p>
+      <p class="user-menu-email">${esc(user.email)}</p>
       ${user.role === "admin" ? '<span class="user-menu-badge">Admin</span>' : ""}
       <hr class="user-menu-divider" />
       ${adminBtn}

@@ -2,12 +2,17 @@ import { CMS_API_URL } from "./config.js";
 
 export const apiUrl = (path) => `${CMS_API_URL || ""}${path}`;
 
-export const apiFetch = (path, opts = {}) =>
-  fetch(apiUrl(path), {
+export const apiFetch = (path, opts = {}) => {
+  const headers = { ...opts.headers };
+  if (opts.body && !(opts.body instanceof FormData)) {
+    headers["Content-Type"] = "application/json";
+  }
+  return fetch(apiUrl(path), {
     credentials: "include",
-    headers: { "Content-Type": "application/json", ...opts.headers },
     ...opts,
+    headers,
   });
+};
 
 export const formatFileSize = (bytes) => {
   if (!bytes) return "";

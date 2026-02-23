@@ -1,0 +1,30 @@
+/* Merged from two declarations: lines 34-39 and 343-345 */
+#site-header {
+  height: var(--header-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-inline: 16px;
+}
+
+#logo-area {
+  display: flex;
+  align-items: center;
+}
+
+#site-logo {
+  height: 96px;
+  width: auto;
+  display: block;
+}
+
+@media (max-width: 768px) {
+  #site-header {
+    height: 96px;
+    padding-inline: 12px;
+  }
+
+  #site-logo {
+    height: 68px;
+  }
+}

@@ -1,0 +1,40 @@
+.cms-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.tree-item:hover > .cms-item-actions {
+  opacity: 1;
+}
+
+.cms-action-btn {
+  background: var(--hover-bg-color);
+  border: 1px solid var(--border-color);
+  width: 20px;
+  height: 20px;
+  font-size: 0.75rem;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 3px;
+  color: var(--muted-text-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.cms-action-btn:hover {
+  background: var(--accent-color);
+  color: var(--bg-color);
+  border-color: var(--accent-color);
+}
+
+.cms-action-danger:hover {
+  background: #c0392b;
+  border-color: #c0392b;
+}

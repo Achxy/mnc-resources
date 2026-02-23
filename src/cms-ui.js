@@ -219,7 +219,8 @@ export const showSubmissions = async () => {
           });
           if (!res.ok) throw new Error("Cancel failed");
           showSubmissions(); // Refresh
-        } catch {
+        } catch (err) {
+          console.warn("Cancel failed", err);
           btn.disabled = false;
         }
       });

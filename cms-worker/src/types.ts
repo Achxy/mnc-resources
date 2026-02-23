@@ -1,7 +1,36 @@
 export interface Env {
   DB: D1Database;
   R2_BUCKET: R2Bucket;
-  APP_ORIGIN: string;
   BETTER_AUTH_SECRET: string;
   SMTP2GO_API_KEY: string;
 }
+
+export type SessionUser = {
+  id: string;
+  email: string;
+  name: string;
+  role: string | null;
+  emailVerified: boolean;
+};
+
+export type SessionData = {
+  user: SessionUser;
+  session: { id: string };
+};
+
+export type AuthEnv = {
+  Bindings: Env;
+  Variables: {
+    user: SessionUser;
+    session: { id: string };
+  };
+};
+
+export const generateId = () => crypto.randomUUID().replace(/-/g, "");
+
+export const config = {
+  appOrigin: "https://mnc.achus.casa",
+  apiBaseUrl: "https://cms.achus.casa",
+  cookieDomain: ".achus.casa",
+  devOrigin: "http://localhost:5173",
+} as const;

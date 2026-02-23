@@ -1,6 +1,6 @@
 import { CDN_BASE_URL } from "./config.js";
 
-export const encodePath = (p) => p.split("/").map(encodeURIComponent).join("/");
+const encodePath = (p) => p.split("/").map(encodeURIComponent).join("/");
 
 /**
  * Maps a manifest path (e.g. "/contents/3rd Semester/file.pdf")

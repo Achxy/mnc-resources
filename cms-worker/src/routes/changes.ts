@@ -1,16 +1,9 @@
 import { Hono } from "hono";
-import type { Env } from "../types";
+import type { AuthEnv } from "../types";
+import { generateId } from "../types";
 import { requireSession } from "../middleware/auth";
 
-type ChangesEnv = {
-  Bindings: Env;
-  Variables: {
-    user: { id: string; email: string; name: string; role: string | null };
-    session: { id: string };
-  };
-};
-
-const changes = new Hono<ChangesEnv>();
+const changes = new Hono<AuthEnv>();
 
 changes.use("/*", requireSession);
 
@@ -29,8 +22,7 @@ changes.post("/upload", async (c) => {
     return c.json({ error: "File too large (max 50MB)" }, 400);
   }
 
-  // Generate change request ID
-  const id = crypto.randomUUID().replace(/-/g, "");
+  const id = generateId();
   const stagingKey = `_staging/${id}/${file.name}`;
 
   // Upload to R2 staging
@@ -61,7 +53,7 @@ changes.post("/rename", async (c) => {
     return c.json({ error: "sourcePath and targetPath are required" }, 400);
   }
 
-  const id = crypto.randomUUID().replace(/-/g, "");
+  const id = generateId();
 
   await c.env.DB.prepare(
     `INSERT INTO change_requests (id, user_id, type, target_path, source_path)
@@ -82,7 +74,7 @@ changes.post("/delete", async (c) => {
     return c.json({ error: "targetPath is required" }, 400);
   }
 
-  const id = crypto.randomUUID().replace(/-/g, "");
+  const id = generateId();
 
   await c.env.DB.prepare(
     `INSERT INTO change_requests (id, user_id, type, target_path)

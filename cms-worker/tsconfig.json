@@ -7,12 +7,7 @@
     "skipLibCheck": true,
     "noEmit": true,
     "lib": ["ESNext"],
-    "types": ["@cloudflare/workers-types"],
-    "jsx": "react-jsx",
-    "jsxImportSource": "hono/jsx",
-    "paths": {
-      "@/*": ["./src/*"]
-    }
+    "types": ["@cloudflare/workers-types"]
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules"]

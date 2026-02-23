@@ -1,4 +1,4 @@
-import "./styles.css";
+import "./styles/index.css";
 import logoUrl from "./assets/mnc-logo.png";
 
 import { registerServiceWorker } from "./sw-register.js";

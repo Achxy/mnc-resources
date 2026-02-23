@@ -1,5 +1,6 @@
 import { IMAGE_EXTENSIONS, CACHE_NAME } from "./config.js";
-import { resolveContentUrl, isCrossOrigin } from "./url.js";
+import { resolveContentUrl } from "./url.js";
+import { fetchAndCache } from "./cache.js";
 
 let previewPane;
 let previewPlaceholder;
@@ -33,25 +34,18 @@ const updatePreviewStatus = (message) => {
 /**
  * Fetch a resource via Cache API (cache-first), falling back to network.
  * Returns { blob, fromCache, duration } or null on failure.
- * Timing covers the full wait: cache lookup or network download + body read.
+ * Delegates caching to fetchAndCache() from cache.js.
  */
 const fetchResource = async (url) => {
-  const cache = await caches.open(CACHE_NAME);
   const start = performance.now();
 
-  const cached = await cache.match(url);
-  if (cached) {
-    const blob = await cached.blob();
-    return { blob, fromCache: true, duration: Math.round(performance.now() - start) };
-  }
+  const wasCached = await fetchAndCache(url);
+  const cache = await caches.open(CACHE_NAME);
+  const response = await cache.match(url);
+  if (!response) return null;
 
-  const opts = isCrossOrigin() ? { mode: "cors" } : {};
-  const response = await fetch(url, opts);
-  if (!response.ok) return null;
-
-  const blob = await response.clone().blob();
-  cache.put(url, response);
-  return { blob, fromCache: false, duration: Math.round(performance.now() - start) };
+  const blob = await response.blob();
+  return { blob, fromCache: wasCached, duration: Math.round(performance.now() - start) };
 };
 
 const buildFolderTreeLines = (node, indent = "") => {

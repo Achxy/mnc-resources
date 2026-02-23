@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { Env } from "./types";
+import { config } from "./types";
 import {
   createAuth,
   generateOTP,
@@ -21,10 +22,7 @@ app.use(
   "/*",
   cors({
     origin: (origin) => {
-      if (
-        origin === "https://mnc.achus.casa" ||
-        origin === "http://localhost:5173"
-      ) {
+      if (origin === config.appOrigin || origin === config.devOrigin) {
         return origin;
       }
       return "";

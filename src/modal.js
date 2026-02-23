@@ -22,7 +22,7 @@ export const createModal = (title, contentHTML) => {
   modal.className = "modal";
   modal.innerHTML = `
     <div class="modal-header">
-      <h2 class="modal-title">${title}</h2>
+      <h2 class="modal-title">${esc(title)}</h2>
       <button class="modal-close" aria-label="Close">&times;</button>
     </div>
     <div class="modal-body">${contentHTML}</div>

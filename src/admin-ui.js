@@ -1,5 +1,5 @@
 import { isAdmin } from "./auth.js";
-import { esc, createModal, closeModal } from "./modal.js";
+import { esc, createModal } from "./modal.js";
 import { apiFetch, formatFileSize } from "./api.js";
 
 export const showAdminPanel = async () => {

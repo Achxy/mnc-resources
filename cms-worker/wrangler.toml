@@ -7,9 +7,6 @@ routes = [
   { pattern = "cms.achus.casa/*", zone_name = "achus.casa" }
 ]
 
-[vars]
-APP_ORIGIN = "https://mnc.achus.casa"
-
 [[d1_databases]]
 binding = "DB"
 database_name = "mnc-cms"

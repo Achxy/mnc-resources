@@ -1,17 +1,10 @@
 import { Hono } from "hono";
-import type { Env } from "../types";
+import type { AuthEnv } from "../types";
+import { generateId } from "../types";
 import { requireAdmin } from "../middleware/auth";
 import { regenerateManifest } from "../lib/manifest";
 
-type AdminEnv = {
-  Bindings: Env;
-  Variables: {
-    user: { id: string; email: string; name: string; role: string | null };
-    session: { id: string };
-  };
-};
-
-const admin = new Hono<AdminEnv>();
+const admin = new Hono<AuthEnv>();
 
 admin.use("/*", requireAdmin);
 
@@ -79,13 +72,7 @@ admin.post("/review/:id", async (c) => {
     `INSERT INTO audit_log (id, user_id, action, target_type, target_id, details)
      VALUES (?, ?, ?, 'change_request', ?, ?)`
   )
-    .bind(
-      crypto.randomUUID().replace(/-/g, ""),
-      reviewer.id,
-      action,
-      id,
-      note || null
-    )
+    .bind(generateId(), reviewer.id, action, id, note || null)
     .run();
 
   // If rejected and it was an upload, clean up staged file
@@ -155,12 +142,7 @@ admin.post("/publish/:id", async (c) => {
       `INSERT INTO audit_log (id, user_id, action, target_type, target_id, details)
        VALUES (?, ?, 'publish', 'change_request', ?, ?)`
     )
-      .bind(
-        crypto.randomUUID().replace(/-/g, ""),
-        publisher.id,
-        id,
-        JSON.stringify({ type, targetPath })
-      )
+      .bind(generateId(), publisher.id, id, JSON.stringify({ type, targetPath }))
       .run();
 
     return c.json({ id, status: "published" });

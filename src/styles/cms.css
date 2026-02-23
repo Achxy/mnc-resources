@@ -1,0 +1,124 @@
+.submissions-list,
+.queue-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.submission-item,
+.queue-item {
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.submission-header,
+.queue-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.submission-type {
+  background: var(--hover-bg-color);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.submission-status {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.status-pending { background: #fff3cd; color: #856404; }
+.status-approved { background: #d4edda; color: #155724; }
+.status-rejected { background: #f8d7da; color: #721c24; }
+.status-published { background: #cce5ff; color: #004085; }
+
+.submission-path {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.8rem;
+  margin: 4px 0;
+  word-break: break-all;
+}
+
+.submission-filename {
+  font-size: 0.8rem;
+  color: var(--muted-text-color);
+  margin: 2px 0;
+}
+
+.submission-note {
+  font-size: 0.8rem;
+  font-style: italic;
+  margin: 4px 0;
+}
+
+.submission-date {
+  font-size: 0.75rem;
+  color: var(--muted-text-color);
+  margin: 4px 0 0;
+}
+
+.submission-cancel {
+  background: none;
+  border: 1px solid #c0392b;
+  color: #c0392b;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  margin-top: 8px;
+}
+
+.submission-cancel:hover {
+  background: #c0392b;
+  color: white;
+}
+
+/* CMS context menu */
+.cms-context-menu {
+  position: fixed;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  z-index: 1001;
+  min-width: 140px;
+  padding: 4px 0;
+}
+
+.cms-ctx-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 8px 14px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--text-color);
+}
+
+.cms-ctx-item:hover {
+  background-color: var(--hover-bg-color);
+}
+
+.cms-ctx-danger {
+  color: #c0392b;
+}
+
+/* Drag-and-drop target */
+.cms-drop-target {
+  outline: 2px dashed var(--accent-color);
+  outline-offset: -2px;
+  background-color: rgba(0, 0, 0, 0.03);
+}

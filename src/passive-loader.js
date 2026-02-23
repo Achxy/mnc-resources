@@ -1,4 +1,4 @@
-import { THROTTLE_MS } from "./config.js";
+import { THROTTLE_MS, PASSIVE_LOAD_DELAY } from "./config.js";
 import { resolveContentUrl } from "./url.js";
 import { fetchAndCache } from "./cache.js";
 
@@ -20,7 +20,7 @@ const collectAllAssets = (nodes) => {
   return assets;
 };
 
-export const shouldPassiveLoad = () => {
+const shouldPassiveLoad = () => {
   if ("connection" in navigator) {
     const conn = navigator.connection;
     if (conn.saveData) return false;
@@ -84,5 +84,5 @@ export const startPassiveLoading = (manifestChildren) => {
 
   setTimeout(() => {
     if (!isProcessingQueue && assetQueue.length > 0) scheduleProcessing();
-  }, 5000);
+  }, PASSIVE_LOAD_DELAY);
 };

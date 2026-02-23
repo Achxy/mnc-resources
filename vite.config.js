@@ -3,15 +3,6 @@ import { defineConfig } from "vite";
 const R2_CDN_ORIGIN = "https://cdn.mnc.achus.casa";
 
 export default defineConfig({
-  root: ".",
-  publicDir: "public",
-  build: {
-    outDir: "dist",
-    assetsDir: "assets",
-    rollupOptions: {
-      input: "index.html",
-    },
-  },
   server: {
     proxy: {
       "/contents": {

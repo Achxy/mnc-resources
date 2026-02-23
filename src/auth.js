@@ -1,8 +1,9 @@
 import { createAuthClient } from "better-auth/client";
 import { adminClient, usernameClient } from "better-auth/client/plugins";
 import { CMS_API_URL } from "./config.js";
+import { apiFetch } from "./api.js";
 
-export const authClient = createAuthClient({
+const authClient = createAuthClient({
   baseURL: CMS_API_URL || window.location.origin,
   basePath: "/api/auth",
   plugins: [adminClient(), usernameClient()],
@@ -24,7 +25,8 @@ export const refreshSession = async () => {
   try {
     const { data } = await authClient.getSession();
     currentUser = data?.user || null;
-  } catch {
+  } catch (err) {
+    console.warn("Session refresh failed", err);
     currentUser = null;
   }
   notify();
@@ -58,12 +60,9 @@ export const signOut = async () => {
   notify();
 };
 
-const apiBase = () => CMS_API_URL || window.location.origin;
-
 export const verifyAndSetup = async (email, code, password) => {
-  const res = await fetch(`${apiBase()}/api/auth/verify-and-setup`, {
+  const res = await apiFetch("/api/auth/verify-and-setup", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, code, password }),
   });
   if (!res.ok) {
@@ -73,18 +72,16 @@ export const verifyAndSetup = async (email, code, password) => {
 };
 
 export const sendResetOTP = async (email) => {
-  const res = await fetch(`${apiBase()}/api/auth/send-reset-otp`, {
+  const res = await apiFetch("/api/auth/send-reset-otp", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email }),
   });
   if (!res.ok) throw new Error("Request failed");
 };
 
 export const resetWithOTP = async (email, code, password) => {
-  const res = await fetch(`${apiBase()}/api/auth/reset-with-otp`, {
+  const res = await apiFetch("/api/auth/reset-with-otp", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, code, password }),
   });
   if (!res.ok) {

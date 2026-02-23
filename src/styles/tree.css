@@ -1,0 +1,107 @@
+#tree-container {
+  border: 1px solid var(--border-color);
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 0.95rem;
+}
+
+.tree-item {
+  list-style: none;
+  display: flex;
+  align-items: flex-start;
+  padding: 4px 6px;
+  width: 100%;
+  border-left: 1px solid var(--tree-group-border);
+  border-right: 1px solid var(--tree-group-border);
+  border-radius: 6px;
+  position: relative;
+}
+
+.tree-item[role="treeitem"]:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.tree-item[role="treeitem"]:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: -2px;
+}
+
+.tree-item-label {
+  flex: 1;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+  word-break: break-word;
+}
+
+.tree-item-folder {
+  cursor: pointer;
+}
+
+.tree-item-folder>.tree-item-label {
+  font-weight: 600;
+}
+
+.tree-item-file .tree-toggle-indicator {
+  visibility: hidden;
+}
+
+.tree-children {
+  margin-left: var(--tree-indent);
+  padding-left: 0;
+  margin-top: 2px;
+  margin-bottom: 2px;
+}
+
+.tree-item.striped-odd {
+  background-color: var(--tree-row-odd);
+}
+
+.tree-item.striped-even {
+  background-color: var(--tree-row-even);
+}
+
+.tree-children>.tree-item:hover {
+  background-color: var(--hover-bg-color);
+}
+
+.tree-toggle-indicator {
+  display: inline-block;
+  width: 12px;
+  margin-right: 4px;
+  font-size: 0.7rem;
+  text-align: center;
+  user-select: none;
+}
+
+.tree-toggle-indicator::before {
+  content: "\25B8";
+}
+
+.tree-item[aria-expanded="true"]>.tree-toggle-indicator::before {
+  content: "\25BE";
+}
+
+.tree-file-link {
+  text-decoration: none;
+  color: inherit;
+}
+
+.tree-file-link:focus-visible {
+  outline: 1px solid var(--accent-color);
+  outline-offset: 1px;
+}
+
+/* Resize note styling */
+#resize-note {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+  opacity: 0.75;
+}
+
+@media (max-width: 768px) {
+  #tree-container {
+    font-size: 0.9rem;
+    padding: 8px 10px;
+  }
+}
