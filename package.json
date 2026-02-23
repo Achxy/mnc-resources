@@ -10,12 +10,20 @@
 		"api:deploy": "bun run --filter @mnc/api deploy",
 		"cdn:dev": "bun run --filter @mnc/cdn dev",
 		"cdn:deploy": "bun run --filter @mnc/cdn deploy",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"test:coverage": "vitest run --coverage",
+		"test:web": "vitest run --project @mnc/web",
+		"test:api": "vitest run --project @mnc/api",
+		"test:cdn": "vitest run --project @mnc/cdn",
 		"check": "biome check .",
 		"check:fix": "biome check --fix .",
 		"typecheck": "tsc --build"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^1.9.0",
-		"typescript": "^5.7.0"
+		"jsdom": "^28.1.0",
+		"typescript": "^5.7.0",
+		"vitest": "^4.0.18"
 	}
 }

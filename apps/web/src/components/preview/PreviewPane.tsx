@@ -1,7 +1,8 @@
-import type { ManifestDirectory, ManifestNode } from "@mnc/shared";
+import type { ManifestNode } from "@mnc/shared";
 import { Show, createEffect, createSignal, onCleanup } from "solid-js";
 import { fetchAndCache } from "../../lib/cache";
 import { CACHE_NAME, IMAGE_EXTENSIONS } from "../../lib/config";
+import { buildFolderTreeLines } from "../../lib/tree-utils";
 import { resolveContentUrl } from "../../lib/url";
 import s from "../../styles/preview.module.css";
 
@@ -24,21 +25,6 @@ const fetchResource = async (url: string): Promise<FetchResult | null> => {
 
 	const blob = await response.blob();
 	return { blob, fromCache: wasCached, duration: Math.round(performance.now() - start) };
-};
-
-const buildFolderTreeLines = (node: ManifestDirectory, indent = ""): string[] => {
-	const lines: string[] = [];
-	const children = node.children || [];
-	children.forEach((child, index) => {
-		const isLast = index === children.length - 1;
-		const branch = isLast ? "\u2514\u2500\u2500 " : "\u251C\u2500\u2500 ";
-		const nextIndent = indent + (isLast ? "    " : "\u2502   ");
-		lines.push(indent + branch + child.name);
-		if (child.type === "directory" && child.children.length > 0) {
-			lines.push(...buildFolderTreeLines(child, nextIndent));
-		}
-	});
-	return lines;
 };
 
 export const PreviewPane = (props: PreviewPaneProps) => {
