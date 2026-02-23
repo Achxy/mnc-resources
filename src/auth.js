@@ -47,9 +47,9 @@ export const signUp = async (email, password, name, username) => {
     username,
   });
   if (error) throw new Error(error.message || "Sign up failed");
-  currentUser = data?.user || null;
-  notify();
-  return currentUser;
+
+  await authClient.signOut();
+  return data?.user || null;
 };
 
 export const signOut = async () => {
