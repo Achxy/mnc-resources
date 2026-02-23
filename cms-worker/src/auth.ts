@@ -8,9 +8,7 @@ import { Resend } from "resend";
 import { scryptSync, randomBytes, timingSafeEqual } from "node:crypto";
 import type { Env } from "./types";
 import * as schema from "./auth-schema";
-
-const escapeHtml = (s: string) =>
-  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+import { verificationEmail, resetPasswordEmail } from "./email-template";
 
 export const createAuth = (env: Env) => {
   const db = drizzle(env.DB, { schema });
@@ -36,13 +34,23 @@ export const createAuth = (env: Env) => {
           return timingSafeEqual(keyBuffer, hashBuffer);
         },
       },
+      sendResetPassword: async ({ user, url }) => {
+        const resetUrl = new URL(url);
+        resetUrl.searchParams.set("callbackURL", "https://mnc.achus.casa");
+        const resend = new Resend(env.RESEND_API_KEY);
+        await resend.emails.send({
+          from: "MnC Resources <noreply@mnc.achus.casa>",
+          to: user.email,
+          subject: "Reset your password — MnC Resources",
+          html: resetPasswordEmail(user.name, resetUrl.toString()),
+        });
+      },
     },
     emailVerification: {
       sendOnSignUp: true,
       sendOnSignIn: true,
       autoSignInAfterVerification: true,
       sendVerificationEmail: async ({ user, url }) => {
-        // Rewrite callbackURL to point to the frontend, not the API domain
         const verifyUrl = new URL(url);
         verifyUrl.searchParams.set("callbackURL", "https://mnc.achus.casa");
         const resend = new Resend(env.RESEND_API_KEY);
@@ -50,7 +58,7 @@ export const createAuth = (env: Env) => {
           from: "MnC Resources <noreply@mnc.achus.casa>",
           to: user.email,
           subject: "Verify your email — MnC Resources",
-          html: `<p>Hi ${escapeHtml(user.name)},</p><p>Click the link below to verify your email:</p><p><a href="${escapeHtml(verifyUrl.toString())}">Verify Email</a></p>`,
+          html: verificationEmail(user.name, verifyUrl.toString()),
         });
       },
     },

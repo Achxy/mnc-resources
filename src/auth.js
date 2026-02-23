@@ -58,4 +58,17 @@ export const signOut = async () => {
   notify();
 };
 
+export const requestPasswordReset = async (email) => {
+  const { error } = await authClient.forgetPassword({
+    email,
+    redirectTo: window.location.origin,
+  });
+  if (error) throw new Error(error.message || "Request failed");
+};
+
+export const resetPassword = async (newPassword, token) => {
+  const { error } = await authClient.resetPassword({ newPassword, token });
+  if (error) throw new Error(error.message || "Reset failed");
+};
+
 export const isAdmin = () => currentUser?.role === "admin";

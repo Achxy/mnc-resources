@@ -6,6 +6,8 @@ import {
   signUp,
   signOut,
   isAdmin,
+  requestPasswordReset,
+  resetPassword,
 } from "./auth.js";
 import { CMS_API_URL } from "./config.js";
 
@@ -59,6 +61,7 @@ const showSignInModal = () => {
         Password
         <input type="password" name="password" required autocomplete="current-password" class="auth-input" />
       </label>
+      <p class="auth-forgot"><button type="button" class="auth-link" id="goto-forgot">Forgot password?</button></p>
       <p id="signin-error" class="auth-error" hidden></p>
       <button type="submit" class="auth-submit">Sign In</button>
       <p class="auth-switch">
@@ -69,6 +72,7 @@ const showSignInModal = () => {
   );
 
   modal.querySelector("#goto-signup").addEventListener("click", showSignUpModal);
+  modal.querySelector("#goto-forgot").addEventListener("click", showForgotPasswordModal);
   modal.querySelector("#signin-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const form = e.target;
@@ -129,8 +133,9 @@ const showSignUpModal = () => {
       <button type="button" id="signup-back" class="auth-link">Back</button>
     </form>
     <div id="signup-success" class="auth-form" hidden>
-      <p class="signup-success-msg">Verification email sent! Check your inbox at <strong id="signup-sent-email"></strong>.</p>
-      <button type="button" id="signup-done" class="auth-submit">OK</button>
+      <p class="signup-success-msg">Check your email at <strong id="signup-sent-email"></strong> to complete registration.</p>
+      <p class="signup-success-hint">Click the verification link to activate your account.</p>
+      <button type="button" id="signup-done" class="auth-link auth-close-link">Close</button>
     </div>
   `
   );
@@ -230,6 +235,106 @@ const showSignUpModal = () => {
   modal.querySelector("#signup-done").addEventListener("click", closeModal);
 };
 
+const showForgotPasswordModal = () => {
+  const modal = createModal(
+    "Forgot Password",
+    `
+    <form id="forgot-form" class="auth-form">
+      <p class="auth-hint">Enter your email and we'll send you a link to reset your password.</p>
+      <label class="auth-label">
+        Email
+        <input type="email" name="email" required autocomplete="email" class="auth-input" />
+      </label>
+      <p id="forgot-error" class="auth-error" hidden></p>
+      <p id="forgot-success" class="auth-success" hidden></p>
+      <button type="submit" class="auth-submit">Send Reset Link</button>
+      <p class="auth-switch">
+        <button type="button" class="auth-link" id="forgot-back">Back to Sign In</button>
+      </p>
+    </form>
+  `
+  );
+
+  modal.querySelector("#forgot-back").addEventListener("click", showSignInModal);
+  modal.querySelector("#forgot-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const errorEl = form.querySelector("#forgot-error");
+    const successEl = form.querySelector("#forgot-success");
+    const submitBtn = form.querySelector(".auth-submit");
+    errorEl.hidden = true;
+    successEl.hidden = true;
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Sending...";
+
+    try {
+      await requestPasswordReset(form.email.value);
+      successEl.textContent = "If that email is registered, a reset link has been sent. Check your inbox.";
+      successEl.hidden = false;
+      submitBtn.hidden = true;
+    } catch (err) {
+      // Don't reveal whether email exists — show generic success
+      successEl.textContent = "If that email is registered, a reset link has been sent. Check your inbox.";
+      successEl.hidden = false;
+      submitBtn.hidden = true;
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Send Reset Link";
+    }
+  });
+};
+
+const showResetPasswordModal = (token) => {
+  const modal = createModal(
+    "Reset Password",
+    `
+    <form id="reset-form" class="auth-form">
+      <label class="auth-label">
+        New Password
+        <input type="password" name="password" required minlength="8" autocomplete="new-password" class="auth-input" />
+      </label>
+      <label class="auth-label">
+        Confirm Password
+        <input type="password" name="confirmPassword" required minlength="8" autocomplete="new-password" class="auth-input" />
+      </label>
+      <p id="reset-error" class="auth-error" hidden></p>
+      <button type="submit" class="auth-submit">Reset Password</button>
+    </form>
+  `
+  );
+
+  modal.querySelector("#reset-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const errorEl = form.querySelector("#reset-error");
+    const submitBtn = form.querySelector(".auth-submit");
+    errorEl.hidden = true;
+
+    if (form.password.value !== form.confirmPassword.value) {
+      errorEl.textContent = "Passwords do not match";
+      errorEl.hidden = false;
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Resetting...";
+
+    try {
+      await resetPassword(form.password.value, token);
+      // Clear token from URL
+      history.replaceState(null, "", location.pathname);
+      closeModal();
+      showSignInModal();
+    } catch (err) {
+      errorEl.textContent = err.message || "Reset failed. The link may have expired.";
+      errorEl.hidden = false;
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Reset Password";
+    }
+  });
+};
+
 const updateAuthButton = (user) => {
   if (!authButton) return;
   if (user) {
@@ -309,4 +414,11 @@ export const initAuthUI = (headerEl, modalContainerEl) => {
 
   onAuthChange(updateAuthButton);
   refreshSession();
+
+  // Check for password reset token in URL
+  const params = new URLSearchParams(location.search);
+  const resetToken = params.get("token");
+  if (resetToken) {
+    showResetPasswordModal(resetToken);
+  }
 };
