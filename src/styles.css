@@ -419,6 +419,10 @@ body[data-layout="tree-only"] #tree-pane {
   gap: 12px;
 }
 
+.auth-form[hidden] {
+  display: none;
+}
+
 .auth-label {
   display: flex;
   flex-direction: column;
