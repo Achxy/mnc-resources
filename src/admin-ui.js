@@ -1,6 +1,12 @@
 import { isAdmin } from "./auth.js";
 import { CMS_API_URL } from "./config.js";
 
+const esc = (s) => {
+  const d = document.createElement("div");
+  d.textContent = s;
+  return d.innerHTML;
+};
+
 const apiUrl = (path) => `${CMS_API_URL || ""}${path}`;
 
 const apiFetch = (path, opts = {}) =>
@@ -93,14 +99,14 @@ const loadQueue = async (modal) => {
         ${queue
           .map(
             (cr) => `
-          <div class="queue-item" data-id="${cr.id}">
+          <div class="queue-item" data-id="${esc(cr.id)}">
             <div class="queue-item-header">
-              <span class="submission-type">${cr.type}</span>
-              <span class="queue-user">${cr.user_name || cr.user_email}</span>
+              <span class="submission-type">${esc(cr.type)}</span>
+              <span class="queue-user">${esc(cr.user_name || cr.user_email)}</span>
             </div>
-            <p class="submission-path">${cr.target_path}</p>
-            ${cr.source_path ? `<p class="submission-path">from: ${cr.source_path}</p>` : ""}
-            ${cr.original_filename ? `<p class="submission-filename">${cr.original_filename} (${formatSize(cr.file_size)})</p>` : ""}
+            <p class="submission-path">${esc(cr.target_path)}</p>
+            ${cr.source_path ? `<p class="submission-path">from: ${esc(cr.source_path)}</p>` : ""}
+            ${cr.original_filename ? `<p class="submission-filename">${esc(cr.original_filename)} (${formatSize(cr.file_size)})</p>` : ""}
             <p class="submission-date">${new Date(cr.created_at).toLocaleDateString()}</p>
             <div class="queue-actions">
               <button class="queue-approve" data-id="${cr.id}">Approve</button>
@@ -182,9 +188,9 @@ const loadAuditLog = async (modal) => {
           .map(
             (entry) => `
           <div class="audit-item">
-            <span class="audit-action">${entry.action}</span>
-            <span class="audit-user">${entry.user_name || entry.user_id}</span>
-            <span class="audit-target">${entry.target_type}:${entry.target_id?.slice(0, 8)}</span>
+            <span class="audit-action">${esc(entry.action)}</span>
+            <span class="audit-user">${esc(entry.user_name || entry.user_id)}</span>
+            <span class="audit-target">${esc(entry.target_type)}:${esc(entry.target_id?.slice(0, 8) || "")}</span>
             <span class="audit-date">${new Date(entry.created_at).toLocaleDateString()}</span>
           </div>
         `

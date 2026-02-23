@@ -23,16 +23,18 @@ roster.post("/lookup", async (c) => {
     return c.json({ error: "Roll number not found" }, 404);
   }
 
-  // Check if already registered
+  // Check if already registered AND verified
   const existing = await c.env.DB.prepare(
-    'SELECT 1 FROM "user" WHERE email = ?'
+    'SELECT "emailVerified" FROM "user" WHERE email = ?'
   )
     .bind(student.email)
-    .first();
+    .first<{ emailVerified: number }>();
 
-  if (existing) {
+  if (existing && existing.emailVerified) {
     return c.json({ error: "Already registered" }, 409);
   }
+
+  // Unverified or no account — allow signup (unverified accounts are provisional)
 
   return c.json({ name: student.name, email: student.email });
 });

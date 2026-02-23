@@ -9,6 +9,9 @@ import { scryptSync, randomBytes, timingSafeEqual } from "node:crypto";
 import type { Env } from "./types";
 import * as schema from "./auth-schema";
 
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
 export const createAuth = (env: Env) => {
   const db = drizzle(env.DB, { schema });
 
@@ -36,13 +39,18 @@ export const createAuth = (env: Env) => {
     },
     emailVerification: {
       sendOnSignUp: true,
+      sendOnSignIn: true,
+      autoSignInAfterVerification: true,
       sendVerificationEmail: async ({ user, url }) => {
+        // Rewrite callbackURL to point to the frontend, not the API domain
+        const verifyUrl = new URL(url);
+        verifyUrl.searchParams.set("callbackURL", "https://mnc.achus.casa");
         const resend = new Resend(env.RESEND_API_KEY);
         await resend.emails.send({
-          from: "MnC Resources <noreply@achus.casa>",
+          from: "MnC Resources <noreply@mnc.achus.casa>",
           to: user.email,
           subject: "Verify your email — MnC Resources",
-          html: `<p>Hi ${user.name},</p><p>Click the link below to verify your email:</p><p><a href="${url}">Verify Email</a></p>`,
+          html: `<p>Hi ${escapeHtml(user.name)},</p><p>Click the link below to verify your email:</p><p><a href="${escapeHtml(verifyUrl.toString())}">Verify Email</a></p>`,
         });
       },
     },
@@ -52,6 +60,8 @@ export const createAuth = (env: Env) => {
         const body = ctx.body as Record<string, unknown> | undefined;
         const email = body?.email;
         if (!email || typeof email !== "string") return;
+
+        // Check allowlist
         const row = await env.DB.prepare(
           "SELECT 1 FROM allowed_students WHERE email = ?"
         )
@@ -61,6 +71,21 @@ export const createAuth = (env: Env) => {
           throw new APIError("BAD_REQUEST", {
             message: "Registration is restricted to approved students only",
           });
+        }
+
+        // Purge any existing unverified account so the real owner can reclaim
+        const unverified = await env.DB.prepare(
+          'SELECT id FROM "user" WHERE email = ? AND "emailVerified" = 0'
+        )
+          .bind(email)
+          .first<{ id: string }>();
+        if (unverified) {
+          await env.DB.batch([
+            env.DB.prepare('DELETE FROM "session" WHERE "userId" = ?').bind(unverified.id),
+            env.DB.prepare('DELETE FROM "account" WHERE "userId" = ?').bind(unverified.id),
+            env.DB.prepare('DELETE FROM "verification" WHERE "identifier" = ?').bind(email),
+            env.DB.prepare('DELETE FROM "user" WHERE id = ?').bind(unverified.id),
+          ]);
         }
       }),
     },

@@ -1,6 +1,12 @@
 import { getUser, isAdmin } from "./auth.js";
 import { CMS_API_URL } from "./config.js";
 
+const esc = (s) => {
+  const d = document.createElement("div");
+  d.textContent = s;
+  return d.innerHTML;
+};
+
 const apiUrl = (path) => `${CMS_API_URL || ""}${path}`;
 
 const apiFetch = (path, opts = {}) =>
@@ -62,7 +68,7 @@ export const showMultiUploadForm = (targetDirectory = "/contents", preloadedFile
     <form id="upload-form" class="auth-form">
       <label class="auth-label">
         Target Directory
-        <input type="text" name="targetDir" value="${targetDirectory}" required class="auth-input" />
+        <input type="text" name="targetDir" value="${esc(targetDirectory)}" required class="auth-input" />
       </label>
       <div class="upload-file-list" id="upload-file-list"></div>
       <div class="upload-add-area" id="upload-add-area">
@@ -104,7 +110,7 @@ export const showMultiUploadForm = (targetDirectory = "/contents", preloadedFile
       item.dataset.fileId = entry.id;
       item.innerHTML = `
         <div class="upload-file-info">
-          <span class="upload-file-name">${entry.file.name}</span>
+          <span class="upload-file-name">${esc(entry.file.name)}</span>
           <span class="upload-file-size">${formatFileSize(entry.file.size)}</span>
         </div>
         <div class="upload-file-progress" hidden>
@@ -241,12 +247,12 @@ export const showSubmissions = async () => {
             (cr) => `
           <div class="submission-item">
             <div class="submission-header">
-              <span class="submission-type">${cr.type}</span>
-              <span class="submission-status ${statusClass(cr.status)}">${cr.status}</span>
+              <span class="submission-type">${esc(cr.type)}</span>
+              <span class="submission-status ${statusClass(cr.status)}">${esc(cr.status)}</span>
             </div>
-            <p class="submission-path">${cr.target_path}</p>
-            ${cr.original_filename ? `<p class="submission-filename">${cr.original_filename}</p>` : ""}
-            ${cr.review_note ? `<p class="submission-note">Note: ${cr.review_note}</p>` : ""}
+            <p class="submission-path">${esc(cr.target_path)}</p>
+            ${cr.original_filename ? `<p class="submission-filename">${esc(cr.original_filename)}</p>` : ""}
+            ${cr.review_note ? `<p class="submission-note">Note: ${esc(cr.review_note)}</p>` : ""}
             <p class="submission-date">${new Date(cr.created_at).toLocaleDateString()}</p>
             ${
               cr.status === "pending"
@@ -337,11 +343,11 @@ export const showRenameForm = (sourcePath) => {
     <form id="rename-form" class="auth-form">
       <label class="auth-label">
         Current Path
-        <input type="text" value="${sourcePath}" disabled class="auth-input" />
+        <input type="text" value="${esc(sourcePath)}" disabled class="auth-input" />
       </label>
       <label class="auth-label">
         New Path
-        <input type="text" name="targetPath" value="${sourcePath}" required class="auth-input" />
+        <input type="text" name="targetPath" value="${esc(sourcePath)}" required class="auth-input" />
       </label>
       <p id="rename-error" class="auth-error" hidden></p>
       <button type="submit" class="auth-submit">Submit Rename</button>
@@ -385,7 +391,7 @@ export const showDeleteConfirm = (targetPath) => {
     `
     <div class="auth-form">
       <p>Request deletion of:</p>
-      <p><strong>${targetPath}</strong></p>
+      <p><strong>${esc(targetPath)}</strong></p>
       <p id="delete-error" class="auth-error" hidden></p>
       <div class="modal-actions">
         <button class="auth-submit cms-ctx-danger" id="confirm-delete">Request Deletion</button>

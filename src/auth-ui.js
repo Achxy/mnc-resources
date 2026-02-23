@@ -82,7 +82,12 @@ const showSignInModal = () => {
       await signIn(form.email.value, form.password.value);
       closeModal();
     } catch (err) {
-      errorEl.textContent = err.message;
+      const msg = err.message || "Sign in failed";
+      if (msg.toLowerCase().includes("not verified") || msg.toLowerCase().includes("verify")) {
+        errorEl.textContent = "Email not verified. A new verification email has been sent — check your inbox.";
+      } else {
+        errorEl.textContent = msg;
+      }
       errorEl.hidden = false;
     } finally {
       submitBtn.disabled = false;
@@ -163,11 +168,12 @@ const showSignUpModal = () => {
       );
       const data = await res.json();
       if (!res.ok) {
-        lookupError.textContent = data.error || "Lookup failed";
         lookupError.hidden = false;
         if (data.error === "Already registered") {
           lookupError.innerHTML = 'Already registered. <button type="button" class="auth-link" id="lookup-goto-signin">Sign in instead</button>';
           modal.querySelector("#lookup-goto-signin").addEventListener("click", showSignInModal);
+        } else {
+          lookupError.textContent = data.error || "Lookup failed";
         }
         return;
       }
@@ -249,7 +255,7 @@ const showUserMenu = () => {
     user.name || "Account",
     `
     <div class="user-menu">
-      <p class="user-menu-email">${user.email}</p>
+      <p class="user-menu-email">${user.email.replace(/</g, "&lt;")}</p>
       ${user.role === "admin" ? '<span class="user-menu-badge">Admin</span>' : ""}
       <hr class="user-menu-divider" />
       ${adminBtn}
