@@ -58,30 +58,38 @@ export const signOut = async () => {
   notify();
 };
 
-export const requestPasswordReset = async (email) => {
-  const { error } = await authClient.forgetPassword({
-    email,
-    redirectTo: window.location.origin,
-  });
-  if (error) throw new Error(error.message || "Request failed");
-};
+const apiBase = () => CMS_API_URL || window.location.origin;
 
-export const resetPassword = async (newPassword, token) => {
-  const { error } = await authClient.resetPassword({ newPassword, token });
-  if (error) throw new Error(error.message || "Reset failed");
-};
-
-export const setInitialPassword = async (password) => {
-  const base = CMS_API_URL || window.location.origin;
-  const res = await fetch(`${base}/api/auth/set-initial-password`, {
+export const verifyAndSetup = async (email, code, password) => {
+  const res = await fetch(`${apiBase()}/api/auth/verify-and-setup`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({ password }),
+    body: JSON.stringify({ email, code, password }),
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || "Failed to set password");
+    throw new Error(data.error || "Verification failed");
+  }
+};
+
+export const sendResetOTP = async (email) => {
+  const res = await fetch(`${apiBase()}/api/auth/send-reset-otp`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) throw new Error("Request failed");
+};
+
+export const resetWithOTP = async (email, code, password) => {
+  const res = await fetch(`${apiBase()}/api/auth/reset-with-otp`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, code, password }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || "Reset failed");
   }
 };
 

@@ -530,24 +530,6 @@ body[data-layout="tree-only"] #tree-pane {
   margin: 0;
 }
 
-.signup-success-msg {
-  font-size: 0.9rem;
-  line-height: 1.5;
-}
-
-.signup-success-hint {
-  font-size: 0.85rem;
-  color: var(--muted-text-color);
-  margin: 0;
-}
-
-.auth-close-link {
-  display: block;
-  text-align: center;
-  font-size: 0.85rem;
-  margin-top: 4px;
-}
-
 .auth-forgot {
   margin: -4px 0 0;
   text-align: right;
@@ -559,6 +541,14 @@ body[data-layout="tree-only"] #tree-pane {
   color: var(--muted-text-color);
   margin: 0;
   line-height: 1.5;
+}
+
+.otp-input {
+  text-align: center;
+  letter-spacing: 6px;
+  font-size: 1.2rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 600;
 }
 
 /* User menu */

@@ -7,9 +7,15 @@ import { APIError } from "better-auth";
 import { scryptSync, randomBytes, timingSafeEqual } from "node:crypto";
 import type { Env } from "./types";
 import * as schema from "./auth-schema";
-import { verificationEmail, resetPasswordEmail } from "./email-template";
+import { verificationOtpEmail } from "./email-template";
 
-const sendEmail = async (
+export const generateOTP = () => {
+  const arr = new Uint32Array(1);
+  crypto.getRandomValues(arr);
+  return (arr[0] % 900000 + 100000).toString();
+};
+
+export const sendEmail = async (
   apiKey: string,
   to: string,
   subject: string,
@@ -32,6 +38,59 @@ const sendEmail = async (
   }
 };
 
+export const storeOTP = async (
+  db: D1Database,
+  email: string,
+  purpose: string,
+  code: string,
+) => {
+  const id = crypto.randomUUID();
+  const identifier = `otp-${purpose}:${email}`;
+  const now = new Date().toISOString();
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
+  // Delete any existing OTP for this email+purpose
+  await db.prepare('DELETE FROM "verification" WHERE "identifier" = ?')
+    .bind(identifier)
+    .run();
+
+  await db.prepare(
+    'INSERT INTO "verification" (id, identifier, value, "expiresAt", "createdAt", "updatedAt") VALUES (?, ?, ?, ?, ?, ?)'
+  )
+    .bind(id, identifier, code, expiresAt, now, now)
+    .run();
+};
+
+export const verifyOTP = async (
+  db: D1Database,
+  email: string,
+  purpose: string,
+  code: string,
+): Promise<boolean> => {
+  const identifier = `otp-${purpose}:${email}`;
+  const row = await db.prepare(
+    'SELECT id, value, "expiresAt" FROM "verification" WHERE "identifier" = ?'
+  )
+    .bind(identifier)
+    .first<{ id: string; value: string; expiresAt: string }>();
+
+  if (!row || row.value !== code) return false;
+  if (new Date(row.expiresAt) < new Date()) {
+    await db.prepare('DELETE FROM "verification" WHERE id = ?').bind(row.id).run();
+    return false;
+  }
+
+  // Consume the OTP
+  await db.prepare('DELETE FROM "verification" WHERE id = ?').bind(row.id).run();
+  return true;
+};
+
+export const hashPassword = async (password: string) => {
+  const salt = randomBytes(16).toString("hex");
+  const hash = scryptSync(password, salt, 64).toString("hex");
+  return `${salt}:${hash}`;
+};
+
 export const createAuth = (env: Env) => {
   const db = drizzle(env.DB, { schema });
 
@@ -44,11 +103,7 @@ export const createAuth = (env: Env) => {
       enabled: true,
       requireEmailVerification: true,
       password: {
-        hash: async (password: string) => {
-          const salt = randomBytes(16).toString("hex");
-          const hash = scryptSync(password, salt, 64).toString("hex");
-          return `${salt}:${hash}`;
-        },
+        hash: hashPassword,
         verify: async ({ hash, password }: { hash: string; password: string }) => {
           const [salt, key] = hash.split(":");
           const keyBuffer = Buffer.from(key, "hex");
@@ -56,29 +111,19 @@ export const createAuth = (env: Env) => {
           return timingSafeEqual(keyBuffer, hashBuffer);
         },
       },
-      sendResetPassword: async ({ user, url }) => {
-        const resetUrl = new URL(url);
-        resetUrl.searchParams.set("callbackURL", "https://mnc.achus.casa");
-        await sendEmail(
-          env.SMTP2GO_API_KEY,
-          user.email,
-          "Reset your password — MnC Resources",
-          resetPasswordEmail(user.name, resetUrl.toString()),
-        );
-      },
     },
     emailVerification: {
       sendOnSignUp: true,
-      sendOnSignIn: true,
-      autoSignInAfterVerification: true,
-      sendVerificationEmail: async ({ user, url }) => {
-        const verifyUrl = new URL(url);
-        verifyUrl.searchParams.set("callbackURL", "https://mnc.achus.casa?setup=1");
+      sendOnSignIn: false,
+      autoSignInAfterVerification: false,
+      sendVerificationEmail: async ({ user }) => {
+        const code = generateOTP();
+        await storeOTP(env.DB, user.email, "verify", code);
         await sendEmail(
           env.SMTP2GO_API_KEY,
           user.email,
-          "Verify your email — MnC Resources",
-          verificationEmail(user.name, verifyUrl.toString()),
+          "Your verification code — MnC Resources",
+          verificationOtpEmail(user.name, code),
         );
       },
     },
@@ -112,6 +157,7 @@ export const createAuth = (env: Env) => {
             env.DB.prepare('DELETE FROM "session" WHERE "userId" = ?').bind(unverified.id),
             env.DB.prepare('DELETE FROM "account" WHERE "userId" = ?').bind(unverified.id),
             env.DB.prepare('DELETE FROM "verification" WHERE "identifier" = ?').bind(email),
+            env.DB.prepare('DELETE FROM "verification" WHERE "identifier" = ?').bind(`otp-verify:${email}`),
             env.DB.prepare('DELETE FROM "user" WHERE id = ?').bind(unverified.id),
           ]);
         }

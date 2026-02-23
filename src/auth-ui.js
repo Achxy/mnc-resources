@@ -6,9 +6,9 @@ import {
   signUp,
   signOut,
   isAdmin,
-  requestPasswordReset,
-  resetPassword,
-  setInitialPassword,
+  verifyAndSetup,
+  sendResetOTP,
+  resetWithOTP,
 } from "./auth.js";
 import { CMS_API_URL } from "./config.js";
 
@@ -95,7 +95,7 @@ const showSignInModal = () => {
     } catch (err) {
       const msg = err.message || "Sign in failed";
       if (msg.toLowerCase().includes("not verified") || msg.toLowerCase().includes("verify")) {
-        errorEl.textContent = "Email not verified. A new verification email has been sent — check your inbox.";
+        errorEl.textContent = "Email not verified. Please complete the sign-up process first.";
       } else {
         errorEl.textContent = msg;
       }
@@ -127,17 +127,29 @@ const showSignUpModal = () => {
     </div>
     <div id="signup-step2" class="auth-form" hidden>
       <p class="signup-welcome">Welcome, <strong id="signup-name"></strong></p>
-      <p class="auth-hint">We'll send a verification email to:</p>
+      <p class="auth-hint">We'll send a verification code to:</p>
       <p class="signup-email-display" id="signup-email-display"></p>
       <p id="signup-error" class="auth-error" hidden></p>
-      <button type="button" id="signup-send-btn" class="auth-submit">Send Verification Email</button>
+      <button type="button" id="signup-send-btn" class="auth-submit">Send Verification Code</button>
       <button type="button" id="signup-back" class="auth-link">Back</button>
     </div>
-    <div id="signup-success" class="auth-form" hidden>
-      <p class="signup-success-msg">Check your email at <strong id="signup-sent-email"></strong> to complete registration.</p>
-      <p class="signup-success-hint">Click the verification link to activate your account and set your password.</p>
-      <button type="button" id="signup-done" class="auth-link auth-close-link">Close</button>
-    </div>
+    <form id="signup-step3" class="auth-form" hidden>
+      <p class="auth-hint">Enter the 6-digit code sent to <strong id="signup-otp-email"></strong></p>
+      <label class="auth-label">
+        Verification Code
+        <input type="text" name="code" inputmode="numeric" pattern="\\d{6}" maxlength="6" required autocomplete="one-time-code" class="auth-input otp-input" placeholder="000000" />
+      </label>
+      <label class="auth-label">
+        Password
+        <input type="password" name="password" required minlength="8" autocomplete="new-password" class="auth-input" />
+      </label>
+      <label class="auth-label">
+        Confirm Password
+        <input type="password" name="confirmPassword" required minlength="8" autocomplete="new-password" class="auth-input" />
+      </label>
+      <p id="verify-error" class="auth-error" hidden></p>
+      <button type="submit" class="auth-submit">Complete Registration</button>
+    </form>
   `
   );
 
@@ -150,7 +162,7 @@ const showSignUpModal = () => {
   const lookupError = modal.querySelector("#lookup-error");
   const step1 = modal.querySelector("#signup-step1");
   const step2 = modal.querySelector("#signup-step2");
-  const successEl = modal.querySelector("#signup-success");
+  const step3 = modal.querySelector("#signup-step3");
 
   lookupBtn.addEventListener("click", async () => {
     const suffix = suffixInput.value.trim();
@@ -218,49 +230,23 @@ const showSignUpModal = () => {
         lookupData.name,
         lookupData.rollNumber
       );
+      modal.querySelector("#signup-otp-email").textContent = lookupData.email;
       step2.hidden = true;
-      modal.querySelector("#signup-sent-email").textContent = lookupData.email;
-      successEl.hidden = false;
+      step3.hidden = false;
+      step3.querySelector('[name="code"]').focus();
     } catch (err) {
       errorEl.textContent = err.message;
       errorEl.hidden = false;
     } finally {
       submitBtn.disabled = false;
-      submitBtn.textContent = "Send Verification Email";
+      submitBtn.textContent = "Send Verification Code";
     }
   });
 
-  modal.querySelector("#signup-done").addEventListener("click", closeModal);
-};
-
-const showSetPasswordModal = () => {
-  const modal = createModal(
-    "Set Your Password",
-    `
-    <form id="setup-form" class="auth-form">
-      <p class="auth-hint">Choose a password to complete your registration.</p>
-      <label class="auth-label">
-        Password
-        <input type="password" name="password" required minlength="8" autocomplete="new-password" class="auth-input" />
-      </label>
-      <label class="auth-label">
-        Confirm Password
-        <input type="password" name="confirmPassword" required minlength="8" autocomplete="new-password" class="auth-input" />
-      </label>
-      <p id="setup-error" class="auth-error" hidden></p>
-      <button type="submit" class="auth-submit">Set Password</button>
-    </form>
-  `
-  );
-
-  // Prevent closing without setting password
-  const closeBtn = modal.querySelector(".modal-close");
-  closeBtn.remove();
-
-  modal.querySelector("#setup-form").addEventListener("submit", async (e) => {
+  step3.addEventListener("submit", async (e) => {
     e.preventDefault();
     const form = e.target;
-    const errorEl = form.querySelector("#setup-error");
+    const errorEl = form.querySelector("#verify-error");
     const submitBtn = form.querySelector(".auth-submit");
     errorEl.hidden = true;
 
@@ -271,18 +257,19 @@ const showSetPasswordModal = () => {
     }
 
     submitBtn.disabled = true;
-    submitBtn.textContent = "Setting password...";
+    submitBtn.textContent = "Verifying...";
 
     try {
-      await setInitialPassword(form.password.value);
-      history.replaceState(null, "", location.pathname);
+      await verifyAndSetup(lookupData.email, form.code.value, form.password.value);
+      // Now sign in with the password they just set
+      await signIn(lookupData.email, form.password.value);
       closeModal();
     } catch (err) {
-      errorEl.textContent = err.message || "Failed to set password";
+      errorEl.textContent = err.message;
       errorEl.hidden = false;
     } finally {
       submitBtn.disabled = false;
-      submitBtn.textContent = "Set Password";
+      submitBtn.textContent = "Complete Registration";
     }
   });
 };
@@ -291,56 +278,24 @@ const showForgotPasswordModal = () => {
   const modal = createModal(
     "Forgot Password",
     `
-    <form id="forgot-form" class="auth-form">
-      <p class="auth-hint">Enter your email and we'll send you a link to reset your password.</p>
+    <div id="forgot-step1" class="auth-form">
+      <p class="auth-hint">Enter your email and we'll send a code to reset your password.</p>
       <label class="auth-label">
         Email
         <input type="email" name="email" required autocomplete="email" class="auth-input" />
       </label>
       <p id="forgot-error" class="auth-error" hidden></p>
-      <p id="forgot-success" class="auth-success" hidden></p>
-      <button type="submit" class="auth-submit">Send Reset Link</button>
+      <button type="button" id="forgot-send-btn" class="auth-submit">Send Reset Code</button>
       <p class="auth-switch">
-        <button type="button" class="auth-link" id="forgot-back">Back to Sign In</button>
+        <button type="button" class="auth-link" id="forgot-back-signin">Back to Sign In</button>
       </p>
-    </form>
-  `
-  );
-
-  modal.querySelector("#forgot-back").addEventListener("click", showSignInModal);
-  modal.querySelector("#forgot-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const form = e.target;
-    const errorEl = form.querySelector("#forgot-error");
-    const successEl = form.querySelector("#forgot-success");
-    const submitBtn = form.querySelector(".auth-submit");
-    errorEl.hidden = true;
-    successEl.hidden = true;
-    submitBtn.disabled = true;
-    submitBtn.textContent = "Sending...";
-
-    try {
-      await requestPasswordReset(form.email.value);
-      successEl.textContent = "If that email is registered, a reset link has been sent. Check your inbox.";
-      successEl.hidden = false;
-      submitBtn.hidden = true;
-    } catch (err) {
-      // Don't reveal whether email exists — show generic success
-      successEl.textContent = "If that email is registered, a reset link has been sent. Check your inbox.";
-      successEl.hidden = false;
-      submitBtn.hidden = true;
-    } finally {
-      submitBtn.disabled = false;
-      submitBtn.textContent = "Send Reset Link";
-    }
-  });
-};
-
-const showResetPasswordModal = (token) => {
-  const modal = createModal(
-    "Reset Password",
-    `
-    <form id="reset-form" class="auth-form">
+    </div>
+    <form id="forgot-step2" class="auth-form" hidden>
+      <p class="auth-hint">Enter the 6-digit code sent to <strong id="forgot-otp-email"></strong></p>
+      <label class="auth-label">
+        Reset Code
+        <input type="text" name="code" inputmode="numeric" pattern="\\d{6}" maxlength="6" required autocomplete="one-time-code" class="auth-input otp-input" placeholder="000000" />
+      </label>
       <label class="auth-label">
         New Password
         <input type="password" name="password" required minlength="8" autocomplete="new-password" class="auth-input" />
@@ -355,7 +310,41 @@ const showResetPasswordModal = (token) => {
   `
   );
 
-  modal.querySelector("#reset-form").addEventListener("submit", async (e) => {
+  let resetEmail = "";
+
+  modal.querySelector("#forgot-back-signin").addEventListener("click", showSignInModal);
+
+  const step1 = modal.querySelector("#forgot-step1");
+  const step2 = modal.querySelector("#forgot-step2");
+
+  modal.querySelector("#forgot-send-btn").addEventListener("click", async () => {
+    const emailInput = step1.querySelector('[name="email"]');
+    const errorEl = step1.querySelector("#forgot-error");
+    const submitBtn = step1.querySelector("#forgot-send-btn");
+
+    if (!emailInput.reportValidity()) return;
+
+    errorEl.hidden = true;
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Sending...";
+
+    try {
+      await sendResetOTP(emailInput.value);
+      resetEmail = emailInput.value;
+      modal.querySelector("#forgot-otp-email").textContent = resetEmail;
+      step1.hidden = true;
+      step2.hidden = false;
+      step2.querySelector('[name="code"]').focus();
+    } catch (err) {
+      errorEl.textContent = err.message || "Failed to send reset code";
+      errorEl.hidden = false;
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Send Reset Code";
+    }
+  });
+
+  step2.addEventListener("submit", async (e) => {
     e.preventDefault();
     const form = e.target;
     const errorEl = form.querySelector("#reset-error");
@@ -372,12 +361,11 @@ const showResetPasswordModal = (token) => {
     submitBtn.textContent = "Resetting...";
 
     try {
-      await resetPassword(form.password.value, token);
-      history.replaceState(null, "", location.pathname);
+      await resetWithOTP(resetEmail, form.code.value, form.password.value);
       closeModal();
       showSignInModal();
     } catch (err) {
-      errorEl.textContent = err.message || "Reset failed. The link may have expired.";
+      errorEl.textContent = err.message || "Reset failed";
       errorEl.hidden = false;
     } finally {
       submitBtn.disabled = false;
@@ -465,23 +453,4 @@ export const initAuthUI = (headerEl, modalContainerEl) => {
 
   onAuthChange(updateAuthButton);
   refreshSession();
-
-  const params = new URLSearchParams(location.search);
-
-  // After email verification: user is auto-signed-in and redirected with ?setup=1
-  // Wait for session to load, then show password setup modal
-  if (params.has("setup")) {
-    const unsub = onAuthChange((user) => {
-      if (user) {
-        unsub();
-        showSetPasswordModal();
-      }
-    });
-  }
-
-  // Password reset: user clicks reset link in email, redirected with ?token=TOKEN
-  const resetToken = params.get("token");
-  if (resetToken) {
-    showResetPasswordModal(resetToken);
-  }
 };

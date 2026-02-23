@@ -38,33 +38,27 @@ const emailLayout = (content: string) => `
 </body>
 </html>`;
 
-const ctaButton = (url: string, label: string) => `
+const otpBlock = (code: string) => `
 <table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px auto;">
   <tr>
-    <td style="background:#111111;border-radius:6px;">
-      <a href="${escapeHtml(url)}" target="_blank" style="display:inline-block;padding:12px 32px;font-size:14px;font-weight:600;color:#ffffff;text-decoration:none;font-family:inherit;">
-        ${escapeHtml(label)}
-      </a>
+    <td style="background:#f4f4f4;border:2px solid #111111;border-radius:8px;padding:16px 40px;">
+      <span style="font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:32px;font-weight:700;color:#111111;letter-spacing:8px;">${escapeHtml(code)}</span>
     </td>
   </tr>
 </table>`;
 
-export const verificationEmail = (name: string, url: string) =>
+export const verificationOtpEmail = (name: string, code: string) =>
   emailLayout(`
     <p style="margin:0 0 16px;font-size:15px;color:#111111;">Hi ${escapeHtml(name)},</p>
-    <p style="margin:0 0 8px;font-size:14px;color:#333333;line-height:1.6;">Verify your email to complete your registration for MnC Resources.</p>
-    <p style="margin:0;font-size:14px;color:#333333;line-height:1.6;">Click the button below to activate your account:</p>
-    ${ctaButton(url, "Verify Email")}
-    <p style="margin:0;font-size:12px;color:#999999;line-height:1.5;">If the button doesn't work, copy and paste this link into your browser:</p>
-    <p style="margin:4px 0 0;font-size:12px;color:#999999;word-break:break-all;">${escapeHtml(url)}</p>
+    <p style="margin:0 0 4px;font-size:14px;color:#333333;line-height:1.6;">Enter this code to verify your email and complete your registration:</p>
+    ${otpBlock(code)}
+    <p style="margin:0;font-size:12px;color:#999999;line-height:1.5;">This code expires in 10 minutes.</p>
   `);
 
-export const resetPasswordEmail = (name: string, url: string) =>
+export const resetOtpEmail = (name: string, code: string) =>
   emailLayout(`
     <p style="margin:0 0 16px;font-size:15px;color:#111111;">Hi ${escapeHtml(name)},</p>
-    <p style="margin:0 0 8px;font-size:14px;color:#333333;line-height:1.6;">We received a request to reset your password for MnC Resources.</p>
-    <p style="margin:0;font-size:14px;color:#333333;line-height:1.6;">Click the button below to set a new password:</p>
-    ${ctaButton(url, "Reset Password")}
-    <p style="margin:0;font-size:12px;color:#999999;line-height:1.5;">If the button doesn't work, copy and paste this link into your browser:</p>
-    <p style="margin:4px 0 0;font-size:12px;color:#999999;word-break:break-all;">${escapeHtml(url)}</p>
+    <p style="margin:0 0 4px;font-size:14px;color:#333333;line-height:1.6;">Enter this code to reset your password:</p>
+    ${otpBlock(code)}
+    <p style="margin:0;font-size:12px;color:#999999;line-height:1.5;">This code expires in 10 minutes.</p>
   `);

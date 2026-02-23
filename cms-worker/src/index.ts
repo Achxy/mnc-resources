@@ -1,8 +1,15 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { scryptSync, randomBytes } from "node:crypto";
 import type { Env } from "./types";
-import { createAuth } from "./auth";
+import {
+  createAuth,
+  generateOTP,
+  storeOTP,
+  verifyOTP,
+  hashPassword,
+  sendEmail,
+} from "./auth";
+import { resetOtpEmail } from "./email-template";
 import changes from "./routes/changes";
 import admin from "./routes/admin";
 import roster from "./routes/roster";
@@ -32,31 +39,99 @@ app.use(
 // Health check
 app.get("/api/health", (c) => c.json({ ok: true }));
 
-// Set initial password — only for freshly verified accounts (within 24h of creation)
-app.post("/api/auth/set-initial-password", async (c) => {
-  const auth = createAuth(c.env);
-  const session = await auth.api.getSession({ headers: c.req.raw.headers });
-  if (!session) return c.json({ error: "Unauthorized" }, 401);
+// Verify signup OTP + set password (completes registration)
+app.post("/api/auth/verify-and-setup", async (c) => {
+  const { email, code, password } = await c.req.json<{
+    email: string;
+    code: string;
+    password: string;
+  }>();
 
-  const { password } = await c.req.json<{ password: string }>();
-  if (!password || typeof password !== "string" || password.length < 8) {
-    return c.json({ error: "Password must be at least 8 characters" }, 400);
+  if (!email || !code || !password || password.length < 8) {
+    return c.json({ error: "Invalid request" }, 400);
   }
 
-  // Only allow within 24 hours of account creation
-  const created = new Date(session.user.createdAt).getTime();
-  if (Date.now() - created > 24 * 60 * 60 * 1000) {
-    return c.json({ error: "Setup window expired. Use forgot password instead." }, 403);
+  const valid = await verifyOTP(c.env.DB, email, "verify", code);
+  if (!valid) {
+    return c.json({ error: "Invalid or expired code" }, 400);
   }
 
-  const salt = randomBytes(16).toString("hex");
-  const hash = scryptSync(password, salt, 64).toString("hex");
-  const hashed = `${salt}:${hash}`;
+  // Mark email as verified
+  await c.env.DB.prepare('UPDATE "user" SET "emailVerified" = 1 WHERE email = ?')
+    .bind(email)
+    .run();
 
+  // Set the real password
+  const user = await c.env.DB.prepare('SELECT id FROM "user" WHERE email = ?')
+    .bind(email)
+    .first<{ id: string }>();
+  if (!user) return c.json({ error: "User not found" }, 404);
+
+  const hashed = await hashPassword(password);
   await c.env.DB.prepare(
     'UPDATE "account" SET password = ? WHERE "userId" = ? AND "providerId" = ?'
   )
-    .bind(hashed, session.user.id, "credential")
+    .bind(hashed, user.id, "credential")
+    .run();
+
+  return c.json({ ok: true });
+});
+
+// Send password reset OTP
+app.post("/api/auth/send-reset-otp", async (c) => {
+  const { email } = await c.req.json<{ email: string }>();
+
+  if (!email) return c.json({ ok: true }); // silent for missing email
+
+  // Check user exists and is verified
+  const user = await c.env.DB.prepare(
+    'SELECT id, name FROM "user" WHERE email = ? AND "emailVerified" = 1'
+  )
+    .bind(email)
+    .first<{ id: string; name: string }>();
+
+  // Always return success to prevent user enumeration
+  if (!user) return c.json({ ok: true });
+
+  const code = generateOTP();
+  await storeOTP(c.env.DB, email, "reset", code);
+  await sendEmail(
+    c.env.SMTP2GO_API_KEY,
+    email,
+    "Your password reset code — MnC Resources",
+    resetOtpEmail(user.name, code),
+  );
+
+  return c.json({ ok: true });
+});
+
+// Verify reset OTP + set new password
+app.post("/api/auth/reset-with-otp", async (c) => {
+  const { email, code, password } = await c.req.json<{
+    email: string;
+    code: string;
+    password: string;
+  }>();
+
+  if (!email || !code || !password || password.length < 8) {
+    return c.json({ error: "Invalid request" }, 400);
+  }
+
+  const valid = await verifyOTP(c.env.DB, email, "reset", code);
+  if (!valid) {
+    return c.json({ error: "Invalid or expired code" }, 400);
+  }
+
+  const user = await c.env.DB.prepare('SELECT id FROM "user" WHERE email = ?')
+    .bind(email)
+    .first<{ id: string }>();
+  if (!user) return c.json({ error: "User not found" }, 404);
+
+  const hashed = await hashPassword(password);
+  await c.env.DB.prepare(
+    'UPDATE "account" SET password = ? WHERE "userId" = ? AND "providerId" = ?'
+  )
+    .bind(hashed, user.id, "credential")
     .run();
 
   return c.json({ ok: true });
