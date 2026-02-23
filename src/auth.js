@@ -71,4 +71,18 @@ export const resetPassword = async (newPassword, token) => {
   if (error) throw new Error(error.message || "Reset failed");
 };
 
+export const setInitialPassword = async (password) => {
+  const base = CMS_API_URL || window.location.origin;
+  const res = await fetch(`${base}/api/auth/set-initial-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ password }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || "Failed to set password");
+  }
+};
+
 export const isAdmin = () => currentUser?.role === "admin";

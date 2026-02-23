@@ -4,11 +4,33 @@ import { drizzle } from "drizzle-orm/d1";
 import { admin, username } from "better-auth/plugins";
 import { createAuthMiddleware } from "better-auth/api";
 import { APIError } from "better-auth";
-import { Resend } from "resend";
 import { scryptSync, randomBytes, timingSafeEqual } from "node:crypto";
 import type { Env } from "./types";
 import * as schema from "./auth-schema";
 import { verificationEmail, resetPasswordEmail } from "./email-template";
+
+const sendEmail = async (
+  apiKey: string,
+  to: string,
+  subject: string,
+  html: string,
+) => {
+  const res = await fetch("https://api.smtp2go.com/v3/email/send", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      api_key: apiKey,
+      sender: "MnC Resources <noreply@mnc.achus.casa>",
+      to: [to],
+      subject,
+      html_body: html,
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`SMTP2GO error ${res.status}: ${body}`);
+  }
+};
 
 export const createAuth = (env: Env) => {
   const db = drizzle(env.DB, { schema });
@@ -37,13 +59,12 @@ export const createAuth = (env: Env) => {
       sendResetPassword: async ({ user, url }) => {
         const resetUrl = new URL(url);
         resetUrl.searchParams.set("callbackURL", "https://mnc.achus.casa");
-        const resend = new Resend(env.RESEND_API_KEY);
-        await resend.emails.send({
-          from: "MnC Resources <noreply@mnc.achus.casa>",
-          to: user.email,
-          subject: "Reset your password — MnC Resources",
-          html: resetPasswordEmail(user.name, resetUrl.toString()),
-        });
+        await sendEmail(
+          env.SMTP2GO_API_KEY,
+          user.email,
+          "Reset your password — MnC Resources",
+          resetPasswordEmail(user.name, resetUrl.toString()),
+        );
       },
     },
     emailVerification: {
@@ -52,14 +73,13 @@ export const createAuth = (env: Env) => {
       autoSignInAfterVerification: true,
       sendVerificationEmail: async ({ user, url }) => {
         const verifyUrl = new URL(url);
-        verifyUrl.searchParams.set("callbackURL", "https://mnc.achus.casa");
-        const resend = new Resend(env.RESEND_API_KEY);
-        await resend.emails.send({
-          from: "MnC Resources <noreply@mnc.achus.casa>",
-          to: user.email,
-          subject: "Verify your email — MnC Resources",
-          html: verificationEmail(user.name, verifyUrl.toString()),
-        });
+        verifyUrl.searchParams.set("callbackURL", "https://mnc.achus.casa?setup=1");
+        await sendEmail(
+          env.SMTP2GO_API_KEY,
+          user.email,
+          "Verify your email — MnC Resources",
+          verificationEmail(user.name, verifyUrl.toString()),
+        );
       },
     },
     hooks: {

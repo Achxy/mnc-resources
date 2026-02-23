@@ -8,6 +8,7 @@ import {
   isAdmin,
   requestPasswordReset,
   resetPassword,
+  setInitialPassword,
 } from "./auth.js";
 import { CMS_API_URL } from "./config.js";
 
@@ -46,6 +47,12 @@ const createModal = (title, contentHTML) => {
 const closeModal = () => {
   modalContainer.innerHTML = "";
   modalContainer.hidden = true;
+};
+
+const randomPassword = () => {
+  const buf = new Uint8Array(24);
+  crypto.getRandomValues(buf);
+  return Array.from(buf, (b) => b.toString(16).padStart(2, "0")).join("");
 };
 
 const showSignInModal = () => {
@@ -118,23 +125,17 @@ const showSignUpModal = () => {
         Already have an account? <button type="button" class="auth-link" id="goto-signin">Sign In</button>
       </p>
     </div>
-    <form id="signup-step2" class="auth-form" hidden>
+    <div id="signup-step2" class="auth-form" hidden>
       <p class="signup-welcome">Welcome, <strong id="signup-name"></strong></p>
-      <label class="auth-label">
-        Email
-        <input type="email" name="email" readonly class="auth-input auth-input-readonly" />
-      </label>
-      <label class="auth-label">
-        Password
-        <input type="password" name="password" required minlength="8" autocomplete="new-password" class="auth-input" />
-      </label>
+      <p class="auth-hint">We'll send a verification email to:</p>
+      <p class="signup-email-display" id="signup-email-display"></p>
       <p id="signup-error" class="auth-error" hidden></p>
-      <button type="submit" class="auth-submit">Sign Up</button>
+      <button type="button" id="signup-send-btn" class="auth-submit">Send Verification Email</button>
       <button type="button" id="signup-back" class="auth-link">Back</button>
-    </form>
+    </div>
     <div id="signup-success" class="auth-form" hidden>
       <p class="signup-success-msg">Check your email at <strong id="signup-sent-email"></strong> to complete registration.</p>
-      <p class="signup-success-hint">Click the verification link to activate your account.</p>
+      <p class="signup-success-hint">Click the verification link to activate your account and set your password.</p>
       <button type="button" id="signup-done" class="auth-link auth-close-link">Close</button>
     </div>
   `
@@ -184,10 +185,9 @@ const showSignUpModal = () => {
       }
       lookupData = { ...data, rollNumber: "240957" + suffix };
       modal.querySelector("#signup-name").textContent = data.name;
-      step2.querySelector('[name="email"]').value = data.email;
+      modal.querySelector("#signup-email-display").textContent = data.email;
       step1.hidden = true;
       step2.hidden = false;
-      step2.querySelector('[name="password"]').focus();
     } finally {
       lookupBtn.disabled = false;
       lookupBtn.textContent = "Look up";
@@ -204,19 +204,17 @@ const showSignUpModal = () => {
     suffixInput.focus();
   });
 
-  step2.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const form = e.target;
-    const errorEl = form.querySelector("#signup-error");
-    const submitBtn = form.querySelector(".auth-submit");
+  modal.querySelector("#signup-send-btn").addEventListener("click", async () => {
+    const errorEl = step2.querySelector("#signup-error");
+    const submitBtn = step2.querySelector("#signup-send-btn");
     errorEl.hidden = true;
     submitBtn.disabled = true;
-    submitBtn.textContent = "Creating account...";
+    submitBtn.textContent = "Sending...";
 
     try {
       await signUp(
         lookupData.email,
-        form.password.value,
+        randomPassword(),
         lookupData.name,
         lookupData.rollNumber
       );
@@ -228,11 +226,65 @@ const showSignUpModal = () => {
       errorEl.hidden = false;
     } finally {
       submitBtn.disabled = false;
-      submitBtn.textContent = "Sign Up";
+      submitBtn.textContent = "Send Verification Email";
     }
   });
 
   modal.querySelector("#signup-done").addEventListener("click", closeModal);
+};
+
+const showSetPasswordModal = () => {
+  const modal = createModal(
+    "Set Your Password",
+    `
+    <form id="setup-form" class="auth-form">
+      <p class="auth-hint">Choose a password to complete your registration.</p>
+      <label class="auth-label">
+        Password
+        <input type="password" name="password" required minlength="8" autocomplete="new-password" class="auth-input" />
+      </label>
+      <label class="auth-label">
+        Confirm Password
+        <input type="password" name="confirmPassword" required minlength="8" autocomplete="new-password" class="auth-input" />
+      </label>
+      <p id="setup-error" class="auth-error" hidden></p>
+      <button type="submit" class="auth-submit">Set Password</button>
+    </form>
+  `
+  );
+
+  // Prevent closing without setting password
+  const closeBtn = modal.querySelector(".modal-close");
+  closeBtn.remove();
+
+  modal.querySelector("#setup-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const errorEl = form.querySelector("#setup-error");
+    const submitBtn = form.querySelector(".auth-submit");
+    errorEl.hidden = true;
+
+    if (form.password.value !== form.confirmPassword.value) {
+      errorEl.textContent = "Passwords do not match";
+      errorEl.hidden = false;
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Setting password...";
+
+    try {
+      await setInitialPassword(form.password.value);
+      history.replaceState(null, "", location.pathname);
+      closeModal();
+    } catch (err) {
+      errorEl.textContent = err.message || "Failed to set password";
+      errorEl.hidden = false;
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Set Password";
+    }
+  });
 };
 
 const showForgotPasswordModal = () => {
@@ -321,7 +373,6 @@ const showResetPasswordModal = (token) => {
 
     try {
       await resetPassword(form.password.value, token);
-      // Clear token from URL
       history.replaceState(null, "", location.pathname);
       closeModal();
       showSignInModal();
@@ -415,8 +466,20 @@ export const initAuthUI = (headerEl, modalContainerEl) => {
   onAuthChange(updateAuthButton);
   refreshSession();
 
-  // Check for password reset token in URL
   const params = new URLSearchParams(location.search);
+
+  // After email verification: user is auto-signed-in and redirected with ?setup=1
+  // Wait for session to load, then show password setup modal
+  if (params.has("setup")) {
+    const unsub = onAuthChange((user) => {
+      if (user) {
+        unsub();
+        showSetPasswordModal();
+      }
+    });
+  }
+
+  // Password reset: user clicks reset link in email, redirected with ?token=TOKEN
   const resetToken = params.get("token");
   if (resetToken) {
     showResetPasswordModal(resetToken);

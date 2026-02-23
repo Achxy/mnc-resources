@@ -524,6 +524,12 @@ body[data-layout="tree-only"] #tree-pane {
   margin: 0;
 }
 
+.signup-email-display {
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
 .signup-success-msg {
   font-size: 0.9rem;
   line-height: 1.5;

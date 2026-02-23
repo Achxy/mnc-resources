@@ -3,5 +3,5 @@ export interface Env {
   R2_BUCKET: R2Bucket;
   APP_ORIGIN: string;
   BETTER_AUTH_SECRET: string;
-  RESEND_API_KEY: string;
+  SMTP2GO_API_KEY: string;
 }
