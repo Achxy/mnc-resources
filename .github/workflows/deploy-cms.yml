@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - "cms-worker/**"
+      - "apps/api/**"
   workflow_dispatch:
 
 jobs:
@@ -16,19 +16,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
 
-      - name: Install CMS worker dependencies
-        working-directory: cms-worker
-        run: npm ci
+      - name: Install dependencies
+        run: bun install
 
       - name: Deploy CMS Worker
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy --config cms-worker/wrangler.toml
+          workingDirectory: apps/api

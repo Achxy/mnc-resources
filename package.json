@@ -1,22 +1,21 @@
 {
-  "name": "class-site",
-  "version": "1.0.0",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
-    "cdn:dev": "wrangler dev --config cdn-worker/wrangler.toml",
-    "cdn:deploy": "wrangler deploy --config cdn-worker/wrangler.toml",
-    "cms:dev": "wrangler dev --config cms-worker/wrangler.toml",
-    "cms:deploy": "wrangler deploy --config cms-worker/wrangler.toml"
-  },
-  "devDependencies": {
-    "vite": "^5.0.0",
-    "wrangler": "^4.67.0"
-  },
-  "dependencies": {
-    "better-auth": "^1.2.0"
-  }
+	"name": "mnc-resources",
+	"private": true,
+	"workspaces": ["apps/*", "packages/*"],
+	"scripts": {
+		"dev": "bun run --filter @mnc/web dev",
+		"build": "bun run --filter @mnc/web build",
+		"preview": "bun run --filter @mnc/web preview",
+		"api:dev": "bun run --filter @mnc/api dev",
+		"api:deploy": "bun run --filter @mnc/api deploy",
+		"cdn:dev": "bun run --filter @mnc/cdn dev",
+		"cdn:deploy": "bun run --filter @mnc/cdn deploy",
+		"check": "biome check .",
+		"check:fix": "biome check --fix .",
+		"typecheck": "tsc --build"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^1.9.0",
+		"typescript": "^5.7.0"
+	}
 }

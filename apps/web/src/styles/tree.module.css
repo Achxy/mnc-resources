@@ -1,0 +1,98 @@
+.treeContainer {
+	border: 1px solid var(--border-color);
+	padding: 8px 12px;
+	border-radius: 4px;
+	font-size: 0.95rem;
+}
+
+.treeItem {
+	list-style: none;
+	display: flex;
+	align-items: flex-start;
+	padding: 4px 6px;
+	width: 100%;
+	border-left: 1px solid var(--tree-group-border);
+	border-right: 1px solid var(--tree-group-border);
+	border-radius: 6px;
+	position: relative;
+}
+
+.treeItem:focus:not(:focus-visible) {
+	outline: none;
+}
+
+.treeItem:focus-visible {
+	outline: 2px solid var(--accent-color);
+	outline-offset: -2px;
+}
+
+.treeItem:hover {
+	background-color: var(--hover-bg-color);
+}
+
+.label {
+	flex: 1;
+	white-space: normal;
+	overflow: visible;
+	text-overflow: unset;
+	word-break: break-word;
+}
+
+.folder {
+	cursor: pointer;
+}
+
+.folder > .label {
+	font-weight: 600;
+}
+
+.fileToggle {
+	visibility: hidden;
+}
+
+.children {
+	margin-left: var(--tree-indent);
+	padding-left: 0;
+	margin-top: 2px;
+	margin-bottom: 2px;
+}
+
+.stripedOdd {
+	background-color: var(--tree-row-odd);
+}
+
+.stripedEven {
+	background-color: var(--tree-row-even);
+}
+
+.toggle {
+	display: inline-block;
+	width: 12px;
+	margin-right: 4px;
+	font-size: 0.7rem;
+	text-align: center;
+	user-select: none;
+}
+
+.fileLink {
+	text-decoration: none;
+	color: inherit;
+}
+
+.fileLink:focus-visible {
+	outline: 1px solid var(--accent-color);
+	outline-offset: 1px;
+}
+
+.resizeNote {
+	margin-top: 0.75rem;
+	font-size: 0.85rem;
+	opacity: 0.75;
+}
+
+@media (max-width: 768px) {
+	.treeContainer {
+		font-size: 0.9rem;
+		padding: 8px 10px;
+	}
+}

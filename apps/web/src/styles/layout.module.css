@@ -1,0 +1,77 @@
+.app {
+	min-height: calc(100vh - var(--header-height) - var(--footer-height));
+	display: flex;
+	justify-content: flex-start;
+	padding: 24px 16px;
+}
+
+.contentPanel {
+	width: 100%;
+	max-width: 1400px;
+	margin-left: auto;
+	margin-right: auto;
+	opacity: 1;
+	transition: opacity 0.2s ease-out;
+}
+
+.contentPanelLoading {
+	opacity: 0;
+}
+
+.contentTitle {
+	font-family: "Fleur De Leah", cursive;
+	font-size: 2.2rem;
+	line-height: 1;
+	margin: 0 0 16px 0;
+	font-weight: 400;
+}
+
+.contentLayout {
+	display: flex;
+	align-items: flex-start;
+	justify-content: flex-start;
+	gap: 1.5rem;
+}
+
+.treePane {
+	flex: 0 0 520px;
+	height: 70vh;
+	overflow-x: auto;
+	overflow-y: auto;
+}
+
+.treePaneFull {
+	flex: 1 1 auto;
+	max-width: 100%;
+	min-width: 0;
+}
+
+.previewPane {
+	flex: 0 0 640px;
+	height: 70vh;
+	border-left: 1px solid rgba(255, 255, 255, 0.3);
+	padding-left: 1.5rem;
+	display: flex;
+	flex-direction: column;
+	overflow-y: auto;
+}
+
+.previewPaneHidden {
+	display: none;
+}
+
+@media (max-width: 768px) {
+	.app {
+		justify-content: flex-start;
+		padding: 16px 12px;
+	}
+
+	.contentPanel {
+		max-width: 100%;
+	}
+
+	.contentTitle {
+		font-size: 2rem;
+		margin-bottom: 12px;
+	}
+}
