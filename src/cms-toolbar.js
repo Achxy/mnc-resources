@@ -1,180 +1,158 @@
-import { getUser, isAdmin } from "./auth.js";
-import { CMS_API_URL } from "./config.js";
-import { showMultiUploadForm, showSubmissions } from "./cms-ui.js";
+import { getUser } from "./auth.js";
+import { showMultiUploadForm, showRenameForm, showDeleteConfirm } from "./cms-ui.js";
 
-const apiUrl = (path) => `${CMS_API_URL || ""}${path}`;
-
-let toolbar = null;
-let dragAbort = null;
-let folderObserver = null;
+let abortController = null;
+let itemObserver = null;
 let treeContainerRef = null;
+let treePaneRef = null;
 
-// Fetch badge counts from API
-const fetchCounts = async () => {
-  const counts = { submissions: 0, queue: 0 };
-  try {
-    const res = await fetch(apiUrl("/api/changes/count?status=pending"), {
-      credentials: "include",
-    });
-    if (res.ok) {
-      const data = await res.json();
-      counts.submissions = data.count;
-    }
-  } catch { /* ignore */ }
-
-  if (isAdmin()) {
-    try {
-      const res = await fetch(apiUrl("/api/admin/queue/count"), {
-        credentials: "include",
-      });
-      if (res.ok) {
-        const data = await res.json();
-        counts.queue = data.count;
-      }
-    } catch { /* ignore */ }
-  }
-  return counts;
+// Get parent path from a file path: /contents/a/b.pdf → /contents/a
+const getParentPath = (path) => {
+  const i = path.lastIndexOf("/");
+  return i > 0 ? path.substring(0, i) : "/contents";
 };
 
-export const refreshToolbarBadges = async () => {
-  if (!toolbar) return;
-  const counts = await fetchCounts();
+// Inject action buttons into a single tree item
+const injectActions = (item) => {
+  if (item.querySelector(".cms-item-actions")) return;
+  const actions = document.createElement("span");
+  actions.className = "cms-item-actions";
 
-  const subBadge = toolbar.querySelector("#cms-badge-submissions");
-  if (subBadge) {
-    subBadge.textContent = counts.submissions;
-    subBadge.hidden = counts.submissions === 0;
-  }
+  const uploadBtn = document.createElement("button");
+  uploadBtn.className = "cms-action-btn";
+  uploadBtn.dataset.action = "upload";
+  uploadBtn.title = item.classList.contains("tree-item-folder")
+    ? "Upload to this folder"
+    : "Upload alongside this file";
+  uploadBtn.textContent = "+";
 
-  const queueBadge = toolbar.querySelector("#cms-badge-queue");
-  if (queueBadge) {
-    queueBadge.textContent = counts.queue;
-    queueBadge.hidden = counts.queue === 0;
-  }
+  const renameBtn = document.createElement("button");
+  renameBtn.className = "cms-action-btn";
+  renameBtn.dataset.action = "rename";
+  renameBtn.title = "Rename";
+  renameBtn.textContent = "\u270E"; // pencil
+
+  const deleteBtn = document.createElement("button");
+  deleteBtn.className = "cms-action-btn cms-action-danger";
+  deleteBtn.dataset.action = "delete";
+  deleteBtn.title = "Delete";
+  deleteBtn.textContent = "\u00D7"; // ×
+
+  actions.append(uploadBtn, renameBtn, deleteBtn);
+  item.appendChild(actions);
 };
 
-// Make available globally for cms-ui.js upload callback
-window.__refreshToolbarBadges = refreshToolbarBadges;
-
-// Get the selected folder path from the tree, or fall back to root
-const getSelectedFolderPath = () => {
-  if (!treeContainerRef) return "/contents";
-  const expanded = treeContainerRef.querySelector('.tree-item-folder[aria-expanded="true"]');
-  return expanded?.dataset.path || "/contents";
+const injectAllActions = (container) => {
+  container.querySelectorAll(".tree-item").forEach(injectActions);
 };
 
-// Inject "+" button into a single folder element
-const injectButtonIntoFolder = (folderEl) => {
-  if (folderEl.querySelector(".cms-folder-upload-btn")) return;
-  const btn = document.createElement("button");
-  btn.className = "cms-folder-upload-btn";
-  btn.setAttribute("aria-label", "Upload to this folder");
-  btn.textContent = "+";
-  folderEl.appendChild(btn);
+const removeAllActions = (container) => {
+  container.querySelectorAll(".cms-item-actions").forEach((el) => el.remove());
 };
 
-// Inject buttons into all folders in container
-const injectFolderUploadButtons = (container) => {
-  container.querySelectorAll(".tree-item-folder").forEach(injectButtonIntoFolder);
+// DOMStringList.includes() doesn't exist in all browsers; DOMStringList uses .contains()
+const hasDragFiles = (e) => {
+  const types = e.dataTransfer?.types;
+  if (!types) return false;
+  return typeof types.contains === "function"
+    ? types.contains("Files")
+    : Array.prototype.includes.call(types, "Files");
 };
 
-// Remove all injected folder buttons
-const removeFolderUploadButtons = (container) => {
-  container.querySelectorAll(".cms-folder-upload-btn").forEach((btn) => btn.remove());
-};
-
-export const initCmsToolbar = (treePane, modalContainer, adminPanel) => {
-  if (toolbar) return; // Already initialized
+export const initCmsTreeActions = (treePane) => {
+  if (abortController) return;
 
   const treeContainer = treePane.querySelector("#tree-container");
   treeContainerRef = treeContainer;
+  treePaneRef = treePane;
+  abortController = new AbortController();
+  const signal = abortController.signal;
 
-  // Create toolbar
-  toolbar = document.createElement("div");
-  toolbar.className = "cms-toolbar";
-  toolbar.innerHTML = `
-    <button class="cms-toolbar-btn cms-toolbar-upload" id="cms-btn-upload">Upload</button>
-    <button class="cms-toolbar-btn" id="cms-btn-submissions">
-      My Submissions
-      <span class="cms-toolbar-badge" id="cms-badge-submissions" hidden>0</span>
-    </button>
-    ${
-      isAdmin()
-        ? `<button class="cms-toolbar-btn" id="cms-btn-queue">
-            Review Queue
-            <span class="cms-toolbar-badge" id="cms-badge-queue" hidden>0</span>
-          </button>`
-        : ""
-    }
-  `;
+  // --- Per-item action buttons ---
+  injectAllActions(treeContainer);
 
-  treePane.insertBefore(toolbar, treePane.firstChild);
+  // Event delegation for action button clicks
+  treeContainer.addEventListener(
+    "click",
+    (e) => {
+      const btn = e.target.closest(".cms-action-btn");
+      if (!btn) return;
 
-  // Toolbar button handlers
-  toolbar.querySelector("#cms-btn-upload").addEventListener("click", () => {
-    showMultiUploadForm(getSelectedFolderPath());
-  });
+      e.preventDefault();
+      e.stopPropagation();
 
-  toolbar.querySelector("#cms-btn-submissions").addEventListener("click", () => {
-    showSubmissions();
-  });
+      const item = btn.closest(".tree-item");
+      const path = item?.dataset.path;
+      if (!path) return;
 
-  const queueBtn = toolbar.querySelector("#cms-btn-queue");
-  if (queueBtn && adminPanel) {
-    queueBtn.addEventListener("click", () => {
-      adminPanel.hidden = !adminPanel.hidden;
-      if (!adminPanel.hidden) {
-        // Trigger render if admin-ui is loaded
-        document.dispatchEvent(new CustomEvent("cms:toggle-admin-panel"));
+      const action = btn.dataset.action;
+      if (action === "upload") {
+        const target = item.classList.contains("tree-item-folder")
+          ? path
+          : getParentPath(path);
+        showMultiUploadForm(target);
+      } else if (action === "rename") {
+        showRenameForm(path);
+      } else if (action === "delete") {
+        showDeleteConfirm(path);
       }
-    });
-  }
+    },
+    { signal }
+  );
 
-  // Fetch initial badge counts
-  refreshToolbarBadges();
+  // MutationObserver for new tree items (expanded directories)
+  itemObserver = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      for (const node of mutation.addedNodes) {
+        if (node.nodeType !== Node.ELEMENT_NODE) continue;
+        if (node.classList?.contains("tree-item")) {
+          injectActions(node);
+        }
+        node.querySelectorAll?.(".tree-item").forEach(injectActions);
+      }
+    }
+  });
+  itemObserver.observe(treeContainer, { childList: true, subtree: true });
 
   // --- Drag-and-drop ---
-  dragAbort = new AbortController();
-  const signal = dragAbort.signal;
-
-  const isDragFiles = (e) => e.dataTransfer?.types?.includes("Files");
-
-  treeContainer.addEventListener(
+  // Attach to treePane (wider target area)
+  treePaneRef.addEventListener(
     "dragenter",
     (e) => {
-      if (!getUser() || !isDragFiles(e)) return;
+      if (!getUser() || !hasDragFiles(e)) return;
       e.preventDefault();
     },
     { signal }
   );
 
-  treeContainer.addEventListener(
+  treePaneRef.addEventListener(
     "dragover",
     (e) => {
-      if (!getUser() || !isDragFiles(e)) return;
+      if (!getUser() || !hasDragFiles(e)) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = "copy";
 
-      // Visual feedback on closest folder
-      treeContainer.querySelectorAll(".cms-drop-target").forEach((el) =>
+      // Clear previous highlights
+      treePaneRef.querySelectorAll(".cms-drop-target").forEach((el) =>
         el.classList.remove("cms-drop-target")
       );
+
+      // Highlight closest folder, or the whole tree container for root
       const folder = e.target.closest(".tree-item-folder");
       if (folder) {
         folder.classList.add("cms-drop-target");
-      } else {
+      } else if (treeContainer.contains(e.target) || e.target === treeContainer) {
         treeContainer.classList.add("cms-drop-target");
       }
     },
     { signal }
   );
 
-  treeContainer.addEventListener(
+  treePaneRef.addEventListener(
     "dragleave",
     (e) => {
-      // Only remove when leaving treeContainer entirely
-      if (!treeContainer.contains(e.relatedTarget)) {
-        treeContainer.querySelectorAll(".cms-drop-target").forEach((el) =>
+      if (!treePaneRef.contains(e.relatedTarget)) {
+        treePaneRef.querySelectorAll(".cms-drop-target").forEach((el) =>
           el.classList.remove("cms-drop-target")
         );
         treeContainer.classList.remove("cms-drop-target");
@@ -183,13 +161,14 @@ export const initCmsToolbar = (treePane, modalContainer, adminPanel) => {
     { signal }
   );
 
-  treeContainer.addEventListener(
+  treePaneRef.addEventListener(
     "drop",
     (e) => {
-      if (!getUser() || !isDragFiles(e)) return;
+      if (!getUser() || !hasDragFiles(e)) return;
       e.preventDefault();
+      e.stopPropagation();
 
-      treeContainer.querySelectorAll(".cms-drop-target").forEach((el) =>
+      treePaneRef.querySelectorAll(".cms-drop-target").forEach((el) =>
         el.classList.remove("cms-drop-target")
       );
       treeContainer.classList.remove("cms-drop-target");
@@ -203,64 +182,24 @@ export const initCmsToolbar = (treePane, modalContainer, adminPanel) => {
     },
     { signal }
   );
-
-  // --- Per-folder upload buttons ---
-  injectFolderUploadButtons(treeContainer);
-
-  // Event delegation for folder upload button clicks
-  treeContainer.addEventListener(
-    "click",
-    (e) => {
-      const btn = e.target.closest(".cms-folder-upload-btn");
-      if (!btn) return;
-      e.stopPropagation();
-      const folder = btn.closest(".tree-item-folder");
-      if (folder?.dataset.path) {
-        showMultiUploadForm(folder.dataset.path);
-      }
-    },
-    { signal }
-  );
-
-  // MutationObserver to inject buttons into new folder elements
-  folderObserver = new MutationObserver((mutations) => {
-    for (const mutation of mutations) {
-      for (const node of mutation.addedNodes) {
-        if (node.nodeType !== Node.ELEMENT_NODE) continue;
-        if (node.classList?.contains("tree-item-folder")) {
-          injectButtonIntoFolder(node);
-        }
-        // Also check descendants
-        if (node.querySelectorAll) {
-          node.querySelectorAll(".tree-item-folder").forEach(injectButtonIntoFolder);
-        }
-      }
-    }
-  });
-  folderObserver.observe(treeContainer, { childList: true, subtree: true });
 };
 
-export const destroyCmsToolbar = () => {
-  if (toolbar) {
-    toolbar.remove();
-    toolbar = null;
+export const destroyCmsTreeActions = () => {
+  if (abortController) {
+    abortController.abort();
+    abortController = null;
   }
 
-  if (dragAbort) {
-    dragAbort.abort();
-    dragAbort = null;
-  }
-
-  if (folderObserver) {
-    folderObserver.disconnect();
-    folderObserver = null;
+  if (itemObserver) {
+    itemObserver.disconnect();
+    itemObserver = null;
   }
 
   if (treeContainerRef) {
-    removeFolderUploadButtons(treeContainerRef);
+    removeAllActions(treeContainerRef);
     treeContainerRef.classList.remove("cms-drop-target");
     treeContainerRef = null;
   }
 
-  window.__refreshToolbarBadges = () => {};
+  treePaneRef = null;
 };

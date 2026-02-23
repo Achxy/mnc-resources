@@ -211,10 +211,6 @@ export const showMultiUploadForm = (targetDirectory = "/contents", preloadedFile
         ? `Done (${successCount} ok, ${failCount} failed)`
         : `Done (${successCount} uploaded)`;
 
-    // Refresh toolbar badges if available
-    if (typeof window.__refreshToolbarBadges === "function") {
-      window.__refreshToolbarBadges();
-    }
   });
 };
 
@@ -334,7 +330,7 @@ export const addCmsContextMenu = (treeContainer) => {
   });
 };
 
-const showRenameForm = (sourcePath) => {
+export const showRenameForm = (sourcePath) => {
   const modal = createModal(
     "Rename",
     `
@@ -383,7 +379,7 @@ const showRenameForm = (sourcePath) => {
   });
 };
 
-const showDeleteConfirm = (targetPath) => {
+export const showDeleteConfirm = (targetPath) => {
   const modal = createModal(
     "Delete",
     `

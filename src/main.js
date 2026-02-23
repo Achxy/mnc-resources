@@ -12,7 +12,7 @@ import { showError } from "./error.js";
 import { initAuthUI } from "./auth-ui.js";
 import { initCmsUI, addCmsContextMenu } from "./cms-ui.js";
 import { isAdmin, onAuthChange } from "./auth.js";
-import { initCmsToolbar, destroyCmsToolbar } from "./cms-toolbar.js";
+import { initCmsTreeActions, destroyCmsTreeActions } from "./cms-toolbar.js";
 
 const init = async (treeContainer) => {
   document.body.dataset.loading = "true";
@@ -40,7 +40,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const siteLogo = document.getElementById("site-logo");
   const siteHeader = document.getElementById("site-header");
   const modalContainer = document.getElementById("modal-container");
-  const adminPanel = document.getElementById("admin-panel");
 
   if (siteLogo) siteLogo.src = logoUrl;
 
@@ -64,19 +63,15 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Toolbar and admin panel on auth change
+  // Per-item tree actions and admin on auth change
   onAuthChange((user) => {
     if (user) {
-      initCmsToolbar(treePane, modalContainer, adminPanel);
+      initCmsTreeActions(treePane);
       if (isAdmin()) {
-        import("./admin-ui.js").then((m) => m.initAdminUI(modalContainer, adminPanel));
+        import("./admin-ui.js").then((m) => m.initAdminUI(modalContainer));
       }
     } else {
-      destroyCmsToolbar();
-      if (adminPanel) {
-        adminPanel.hidden = true;
-        adminPanel.innerHTML = "";
-      }
+      destroyCmsTreeActions();
     }
   });
 

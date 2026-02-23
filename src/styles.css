@@ -781,61 +781,6 @@ body[data-layout="tree-only"] #tree-pane {
   padding: 20px 0;
 }
 
-/* CMS Toolbar */
-.cms-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 0;
-  margin-bottom: 8px;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.cms-toolbar-btn {
-  position: relative;
-  background: none;
-  border: 1px solid var(--border-color);
-  padding: 6px 14px;
-  font-size: 0.8rem;
-  cursor: pointer;
-  border-radius: 4px;
-  font-family: inherit;
-  color: var(--text-color);
-  transition: background-color 0.15s;
-}
-
-.cms-toolbar-btn:hover {
-  background-color: var(--hover-bg-color);
-}
-
-.cms-toolbar-upload {
-  background: var(--accent-color);
-  color: var(--bg-color);
-  border-color: var(--accent-color);
-  font-weight: 600;
-}
-
-.cms-toolbar-upload:hover {
-  opacity: 0.85;
-  background: var(--accent-color);
-}
-
-.cms-toolbar-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: #c0392b;
-  color: #fff;
-  font-size: 0.65rem;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  border-radius: 8px;
-  font-weight: 700;
-  margin-left: 4px;
-  vertical-align: middle;
-}
-
 /* Drag-and-drop target */
 .cms-drop-target {
   outline: 2px dashed var(--accent-color);
@@ -948,21 +893,27 @@ body[data-layout="tree-only"] #tree-pane {
   color: var(--text-color);
 }
 
-/* Per-folder upload button */
-.tree-item-folder {
-  position: relative;
+/* Per-item action buttons (upload, rename, delete) — hover only */
+.cms-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s;
 }
 
-.cms-folder-upload-btn {
-  position: absolute;
-  right: 4px;
-  top: 50%;
-  transform: translateY(-50%);
+.tree-item:hover > .cms-item-actions {
+  opacity: 1;
+}
+
+.cms-action-btn {
   background: var(--hover-bg-color);
   border: 1px solid var(--border-color);
   width: 20px;
   height: 20px;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   line-height: 1;
   cursor: pointer;
   border-radius: 3px;
@@ -970,76 +921,16 @@ body[data-layout="tree-only"] #tree-pane {
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0;
-  transition: opacity 0.15s;
   padding: 0;
 }
 
-.tree-item-folder:hover .cms-folder-upload-btn {
-  opacity: 1;
-}
-
-.cms-folder-upload-btn:hover {
+.cms-action-btn:hover {
   background: var(--accent-color);
   color: var(--bg-color);
   border-color: var(--accent-color);
 }
 
-/* Inline admin panel */
-#admin-panel {
-  max-width: 1400px;
-  margin: 0 auto 16px;
-  padding: 0 16px;
-}
-
-.admin-inline-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 0 8px;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.admin-inline-title {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.admin-inline-header .admin-tabs {
-  margin: 0;
-  border: none;
-  padding: 0;
-  flex: 1;
-}
-
-.admin-inline-close {
-  background: none;
-  border: none;
-  font-size: 1.3rem;
-  cursor: pointer;
-  color: var(--muted-text-color);
-  padding: 0 4px;
-  line-height: 1;
-  margin-left: auto;
-}
-
-.admin-inline-close:hover {
-  color: var(--text-color);
-}
-
-.admin-inline-body {
-  padding: 12px 0;
-}
-
-.queue-publish {
-  background: var(--accent-color);
-  color: var(--bg-color);
-  border: none;
-  padding: 6px 14px;
-  font-size: 0.8rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-family: inherit;
-  font-weight: 600;
+.cms-action-danger:hover {
+  background: #c0392b;
+  border-color: #c0392b;
 }

@@ -177,6 +177,7 @@ const showUserMenu = () => {
       ${user.role === "admin" ? '<span class="user-menu-badge">Admin</span>' : ""}
       <hr class="user-menu-divider" />
       ${adminBtn}
+      <button class="user-menu-item" id="user-menu-upload">Upload File</button>
       <button class="user-menu-item" id="user-menu-submissions">My Submissions</button>
       <button class="user-menu-item user-menu-signout" id="user-menu-signout">Sign Out</button>
     </div>
@@ -187,6 +188,14 @@ const showUserMenu = () => {
     await signOut();
     closeModal();
   });
+
+  const uploadBtn = modal.querySelector("#user-menu-upload");
+  if (uploadBtn) {
+    uploadBtn.addEventListener("click", () => {
+      closeModal();
+      import("./cms-ui.js").then((m) => m.showMultiUploadForm("/contents"));
+    });
+  }
 
   const submissionsBtn = modal.querySelector("#user-menu-submissions");
   if (submissionsBtn) {
