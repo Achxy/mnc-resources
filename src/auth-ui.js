@@ -7,6 +7,7 @@ import {
   signOut,
   isAdmin,
 } from "./auth.js";
+import { CMS_API_URL } from "./config.js";
 
 let modalContainer;
 let authButton;
@@ -94,18 +95,25 @@ const showSignUpModal = () => {
   const modal = createModal(
     "Sign Up",
     `
-    <form id="signup-form" class="auth-form">
+    <div id="signup-step1" class="auth-form">
       <label class="auth-label">
-        Name
-        <input type="text" name="name" required autocomplete="name" class="auth-input" />
+        Roll Number
+        <div class="roll-input-row">
+          <span class="roll-prefix">240957</span>
+          <input type="text" id="roll-suffix" inputmode="numeric" pattern="\\d{3}" maxlength="3" placeholder="001" required class="auth-input roll-suffix-input" />
+        </div>
       </label>
-      <label class="auth-label">
-        Username
-        <input type="text" name="username" required autocomplete="username" class="auth-input" />
-      </label>
+      <p id="lookup-error" class="auth-error" hidden></p>
+      <button type="button" id="lookup-btn" class="auth-submit">Look up</button>
+      <p class="auth-switch">
+        Already have an account? <button type="button" class="auth-link" id="goto-signin">Sign In</button>
+      </p>
+    </div>
+    <form id="signup-step2" class="auth-form" hidden>
+      <p class="signup-welcome">Welcome, <strong id="signup-name"></strong></p>
       <label class="auth-label">
         Email
-        <input type="email" name="email" required autocomplete="email" class="auth-input" />
+        <input type="email" name="email" readonly class="auth-input auth-input-readonly" />
       </label>
       <label class="auth-label">
         Password
@@ -113,15 +121,79 @@ const showSignUpModal = () => {
       </label>
       <p id="signup-error" class="auth-error" hidden></p>
       <button type="submit" class="auth-submit">Sign Up</button>
-      <p class="auth-switch">
-        Already have an account? <button type="button" class="auth-link" id="goto-signin">Sign In</button>
-      </p>
+      <button type="button" id="signup-back" class="auth-link">Back</button>
     </form>
+    <div id="signup-success" class="auth-form" hidden>
+      <p class="signup-success-msg">Verification email sent! Check your inbox at <strong id="signup-sent-email"></strong>.</p>
+      <button type="button" id="signup-done" class="auth-submit">OK</button>
+    </div>
   `
   );
 
+  let lookupData = null;
+
   modal.querySelector("#goto-signin").addEventListener("click", showSignInModal);
-  modal.querySelector("#signup-form").addEventListener("submit", async (e) => {
+
+  const suffixInput = modal.querySelector("#roll-suffix");
+  const lookupBtn = modal.querySelector("#lookup-btn");
+  const lookupError = modal.querySelector("#lookup-error");
+  const step1 = modal.querySelector("#signup-step1");
+  const step2 = modal.querySelector("#signup-step2");
+  const successEl = modal.querySelector("#signup-success");
+
+  lookupBtn.addEventListener("click", async () => {
+    const suffix = suffixInput.value.trim();
+    if (!/^\d{3}$/.test(suffix)) {
+      lookupError.textContent = "Enter exactly 3 digits";
+      lookupError.hidden = false;
+      return;
+    }
+    lookupError.hidden = true;
+    lookupBtn.disabled = true;
+    lookupBtn.textContent = "Looking up...";
+
+    try {
+      const res = await fetch(
+        `${CMS_API_URL || ""}/api/roster/lookup`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ suffix }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        lookupError.textContent = data.error || "Lookup failed";
+        lookupError.hidden = false;
+        if (data.error === "Already registered") {
+          lookupError.innerHTML = 'Already registered. <button type="button" class="auth-link" id="lookup-goto-signin">Sign in instead</button>';
+          modal.querySelector("#lookup-goto-signin").addEventListener("click", showSignInModal);
+        }
+        return;
+      }
+      lookupData = { ...data, rollNumber: "240957" + suffix };
+      modal.querySelector("#signup-name").textContent = data.name;
+      step2.querySelector('[name="email"]').value = data.email;
+      step1.hidden = true;
+      step2.hidden = false;
+      step2.querySelector('[name="password"]').focus();
+    } finally {
+      lookupBtn.disabled = false;
+      lookupBtn.textContent = "Look up";
+    }
+  });
+
+  suffixInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") lookupBtn.click();
+  });
+
+  modal.querySelector("#signup-back").addEventListener("click", () => {
+    step2.hidden = true;
+    step1.hidden = false;
+    suffixInput.focus();
+  });
+
+  step2.addEventListener("submit", async (e) => {
     e.preventDefault();
     const form = e.target;
     const errorEl = form.querySelector("#signup-error");
@@ -132,12 +204,14 @@ const showSignUpModal = () => {
 
     try {
       await signUp(
-        form.email.value,
+        lookupData.email,
         form.password.value,
-        form.name.value,
-        form.username.value
+        lookupData.name,
+        lookupData.rollNumber
       );
-      closeModal();
+      step2.hidden = true;
+      modal.querySelector("#signup-sent-email").textContent = lookupData.email;
+      successEl.hidden = false;
     } catch (err) {
       errorEl.textContent = err.message;
       errorEl.hidden = false;
@@ -146,6 +220,8 @@ const showSignUpModal = () => {
       submitBtn.textContent = "Sign Up";
     }
   });
+
+  modal.querySelector("#signup-done").addEventListener("click", closeModal);
 };
 
 const updateAuthButton = (user) => {

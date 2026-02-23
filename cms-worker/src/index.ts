@@ -4,6 +4,7 @@ import type { Env } from "./types";
 import { createAuth } from "./auth";
 import changes from "./routes/changes";
 import admin from "./routes/admin";
+import roster from "./routes/roster";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -39,5 +40,6 @@ app.all("/api/auth/*", async (c) => {
 // Mount business routes
 app.route("/api/changes", changes);
 app.route("/api/admin", admin);
+app.route("/api/roster", roster);
 
 export default app;

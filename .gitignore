@@ -4,6 +4,7 @@ dist
 .env
 cdn-worker/.wrangler
 cms-worker/.wrangler
+cms-worker/seed_roster.sql
 
 # Terraform
 infra/.terraform/

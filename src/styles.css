@@ -491,6 +491,40 @@ body[data-layout="tree-only"] #tree-pane {
   padding: 0;
 }
 
+.roll-input-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.roll-prefix {
+  font-size: 0.9rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.roll-suffix-input {
+  width: 60px;
+  text-align: center;
+  letter-spacing: 2px;
+}
+
+.auth-input-readonly {
+  background: var(--bg-color);
+  opacity: 0.7;
+  cursor: default;
+}
+
+.signup-welcome {
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.signup-success-msg {
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
 /* User menu */
 .user-menu {
   display: flex;
