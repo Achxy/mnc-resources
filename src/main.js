@@ -12,7 +12,7 @@ import { showError } from "./error.js";
 import { initAuthUI } from "./auth-ui.js";
 import { initCmsUI, addCmsContextMenu } from "./cms-ui.js";
 import { isAdmin, onAuthChange } from "./auth.js";
-import { initCmsTreeActions, destroyCmsTreeActions } from "./cms-toolbar.js";
+import { initDownloadButtons, initCmsTreeActions, destroyCmsTreeActions } from "./cms-toolbar.js";
 
 const init = async (treeContainer) => {
   document.body.dataset.loading = "true";
@@ -47,6 +47,9 @@ document.addEventListener("DOMContentLoaded", () => {
   initPreview(previewPane, previewPlaceholder, previewStatusEl);
   initTree(treeContainer);
   setupTreeDelegation(treeContainer);
+
+  // Download buttons for all users
+  initDownloadButtons(treeContainer);
 
   // Auth and CMS
   initAuthUI(siteHeader, modalContainer);

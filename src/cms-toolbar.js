@@ -1,56 +1,157 @@
 import { getUser } from "./auth.js";
 import { showMultiUploadForm, showRenameForm, showDeleteConfirm } from "./cms-ui.js";
+import { resolveContentUrl } from "./url.js";
+import { nodesByPath } from "./tree.js";
 
-let abortController = null;
-let itemObserver = null;
-let treeContainerRef = null;
-let treePaneRef = null;
+// --- Download (no auth required) ---
 
-// Get parent path from a file path: /contents/a/b.pdf → /contents/a
-const getParentPath = (path) => {
-  const i = path.lastIndexOf("/");
-  return i > 0 ? path.substring(0, i) : "/contents";
+let dlAbort = null;
+let dlObserver = null;
+let dlTreeRef = null;
+
+const downloadFile = async (path) => {
+  const url = resolveContentUrl(path);
+  const filename = path.split("/").pop();
+  try {
+    const res = await fetch(url, { mode: "cors" });
+    if (!res.ok) throw new Error();
+    const blob = await res.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  } catch {
+    window.open(url, "_blank");
+  }
 };
 
-// Inject action buttons into a single tree item
-const injectActions = (item) => {
-  if (item.querySelector(".cms-item-actions")) return;
-  const actions = document.createElement("span");
-  actions.className = "cms-item-actions";
+const collectFiles = (node) => {
+  const files = [];
+  for (const child of node.children || []) {
+    if (child.type === "directory") files.push(...collectFiles(child));
+    else files.push(child.path);
+  }
+  return files;
+};
 
-  const uploadBtn = document.createElement("button");
-  uploadBtn.className = "cms-action-btn";
-  uploadBtn.dataset.action = "upload";
-  uploadBtn.title = item.classList.contains("tree-item-folder")
-    ? "Upload to this folder"
-    : "Upload alongside this file";
-  uploadBtn.textContent = "+";
+const downloadFolder = async (path) => {
+  const node = nodesByPath.get(path);
+  if (!node) return;
+  const files = collectFiles(node);
+  for (const filePath of files) {
+    await downloadFile(filePath);
+  }
+};
+
+const ensureActionsContainer = (item) => {
+  let actions = item.querySelector(".cms-item-actions");
+  if (!actions) {
+    actions = document.createElement("span");
+    actions.className = "cms-item-actions";
+    item.appendChild(actions);
+  }
+  return actions;
+};
+
+const injectDownloadBtn = (item) => {
+  const actions = ensureActionsContainer(item);
+  if (actions.querySelector(".cms-dl-btn")) return;
+  const isFolder = item.classList.contains("tree-item-folder");
+  const btn = document.createElement("button");
+  btn.className = "cms-action-btn cms-dl-btn";
+  btn.dataset.action = "download";
+  btn.title = isFolder ? "Download folder" : "Download";
+  btn.textContent = "\u2193"; // ↓
+  actions.prepend(btn);
+};
+
+const injectAllDownloadBtns = (container) => {
+  container.querySelectorAll(".tree-item").forEach(injectDownloadBtn);
+};
+
+export const initDownloadButtons = (treeContainer) => {
+  if (dlAbort) return;
+  dlTreeRef = treeContainer;
+  dlAbort = new AbortController();
+  const signal = dlAbort.signal;
+
+  injectAllDownloadBtns(treeContainer);
+
+  // Click delegation for download
+  treeContainer.addEventListener(
+    "click",
+    (e) => {
+      const btn = e.target.closest(".cms-dl-btn");
+      if (!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const item = btn.closest(".tree-item");
+      const path = item?.dataset.path;
+      if (!path) return;
+      if (item.classList.contains("tree-item-folder")) downloadFolder(path);
+      else downloadFile(path);
+    },
+    { signal }
+  );
+
+  // Observer for expanded directories
+  dlObserver = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      for (const node of mutation.addedNodes) {
+        if (node.nodeType !== Node.ELEMENT_NODE) continue;
+        if (node.classList?.contains("tree-item")) injectDownloadBtn(node);
+        node.querySelectorAll?.(".tree-item").forEach(injectDownloadBtn);
+      }
+    }
+  });
+  dlObserver.observe(treeContainer, { childList: true, subtree: true });
+};
+
+// --- CMS edit actions (auth required) ---
+
+let cmsAbort = null;
+let cmsObserver = null;
+let cmsTreeRef = null;
+let cmsPaneRef = null;
+
+const injectCmsActions = (item) => {
+  const actions = ensureActionsContainer(item);
+  if (actions.querySelector(".cms-edit-btn")) return;
+  const isFolder = item.classList.contains("tree-item-folder");
+
+  if (isFolder) {
+    const uploadBtn = document.createElement("button");
+    uploadBtn.className = "cms-action-btn cms-edit-btn";
+    uploadBtn.dataset.action = "upload";
+    uploadBtn.title = "Upload to this folder";
+    uploadBtn.textContent = "+";
+    actions.appendChild(uploadBtn);
+  }
 
   const renameBtn = document.createElement("button");
-  renameBtn.className = "cms-action-btn";
+  renameBtn.className = "cms-action-btn cms-edit-btn";
   renameBtn.dataset.action = "rename";
   renameBtn.title = "Rename";
-  renameBtn.textContent = "\u270E"; // pencil
+  renameBtn.textContent = "\u270E";
 
   const deleteBtn = document.createElement("button");
-  deleteBtn.className = "cms-action-btn cms-action-danger";
+  deleteBtn.className = "cms-action-btn cms-edit-btn cms-action-danger";
   deleteBtn.dataset.action = "delete";
   deleteBtn.title = "Delete";
-  deleteBtn.textContent = "\u00D7"; // ×
+  deleteBtn.textContent = "\u00D7";
 
-  actions.append(uploadBtn, renameBtn, deleteBtn);
-  item.appendChild(actions);
+  actions.append(renameBtn, deleteBtn);
 };
 
-const injectAllActions = (container) => {
-  container.querySelectorAll(".tree-item").forEach(injectActions);
+const injectAllCmsActions = (container) => {
+  container.querySelectorAll(".tree-item").forEach(injectCmsActions);
 };
 
-const removeAllActions = (container) => {
-  container.querySelectorAll(".cms-item-actions").forEach((el) => el.remove());
+const removeAllCmsActions = (container) => {
+  container.querySelectorAll(".cms-edit-btn").forEach((btn) => btn.remove());
 };
 
-// DOMStringList.includes() doesn't exist in all browsers; DOMStringList uses .contains()
 const hasDragFiles = (e) => {
   const types = e.dataTransfer?.types;
   if (!types) return false;
@@ -60,24 +161,22 @@ const hasDragFiles = (e) => {
 };
 
 export const initCmsTreeActions = (treePane) => {
-  if (abortController) return;
+  if (cmsAbort) return;
 
   const treeContainer = treePane.querySelector("#tree-container");
-  treeContainerRef = treeContainer;
-  treePaneRef = treePane;
-  abortController = new AbortController();
-  const signal = abortController.signal;
+  cmsTreeRef = treeContainer;
+  cmsPaneRef = treePane;
+  cmsAbort = new AbortController();
+  const signal = cmsAbort.signal;
 
-  // --- Per-item action buttons ---
-  injectAllActions(treeContainer);
+  injectAllCmsActions(treeContainer);
 
-  // Event delegation for action button clicks
+  // Click delegation for CMS actions
   treeContainer.addEventListener(
     "click",
     (e) => {
-      const btn = e.target.closest(".cms-action-btn");
+      const btn = e.target.closest(".cms-edit-btn");
       if (!btn) return;
-
       e.preventDefault();
       e.stopPropagation();
 
@@ -86,37 +185,27 @@ export const initCmsTreeActions = (treePane) => {
       if (!path) return;
 
       const action = btn.dataset.action;
-      if (action === "upload") {
-        const target = item.classList.contains("tree-item-folder")
-          ? path
-          : getParentPath(path);
-        showMultiUploadForm(target);
-      } else if (action === "rename") {
-        showRenameForm(path);
-      } else if (action === "delete") {
-        showDeleteConfirm(path);
-      }
+      if (action === "upload") showMultiUploadForm(path);
+      else if (action === "rename") showRenameForm(path);
+      else if (action === "delete") showDeleteConfirm(path);
     },
     { signal }
   );
 
-  // MutationObserver for new tree items (expanded directories)
-  itemObserver = new MutationObserver((mutations) => {
+  // Observer for expanded directories
+  cmsObserver = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
       for (const node of mutation.addedNodes) {
         if (node.nodeType !== Node.ELEMENT_NODE) continue;
-        if (node.classList?.contains("tree-item")) {
-          injectActions(node);
-        }
-        node.querySelectorAll?.(".tree-item").forEach(injectActions);
+        if (node.classList?.contains("tree-item")) injectCmsActions(node);
+        node.querySelectorAll?.(".tree-item").forEach(injectCmsActions);
       }
     }
   });
-  itemObserver.observe(treeContainer, { childList: true, subtree: true });
+  cmsObserver.observe(treeContainer, { childList: true, subtree: true });
 
   // --- Drag-and-drop ---
-  // Attach to treePane (wider target area)
-  treePaneRef.addEventListener(
+  cmsPaneRef.addEventListener(
     "dragenter",
     (e) => {
       if (!getUser() || !hasDragFiles(e)) return;
@@ -125,19 +214,17 @@ export const initCmsTreeActions = (treePane) => {
     { signal }
   );
 
-  treePaneRef.addEventListener(
+  cmsPaneRef.addEventListener(
     "dragover",
     (e) => {
       if (!getUser() || !hasDragFiles(e)) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = "copy";
 
-      // Clear previous highlights
-      treePaneRef.querySelectorAll(".cms-drop-target").forEach((el) =>
+      cmsPaneRef.querySelectorAll(".cms-drop-target").forEach((el) =>
         el.classList.remove("cms-drop-target")
       );
 
-      // Highlight closest folder, or the whole tree container for root
       const folder = e.target.closest(".tree-item-folder");
       if (folder) {
         folder.classList.add("cms-drop-target");
@@ -148,11 +235,11 @@ export const initCmsTreeActions = (treePane) => {
     { signal }
   );
 
-  treePaneRef.addEventListener(
+  cmsPaneRef.addEventListener(
     "dragleave",
     (e) => {
-      if (!treePaneRef.contains(e.relatedTarget)) {
-        treePaneRef.querySelectorAll(".cms-drop-target").forEach((el) =>
+      if (!cmsPaneRef.contains(e.relatedTarget)) {
+        cmsPaneRef.querySelectorAll(".cms-drop-target").forEach((el) =>
           el.classList.remove("cms-drop-target")
         );
         treeContainer.classList.remove("cms-drop-target");
@@ -161,14 +248,14 @@ export const initCmsTreeActions = (treePane) => {
     { signal }
   );
 
-  treePaneRef.addEventListener(
+  cmsPaneRef.addEventListener(
     "drop",
     (e) => {
       if (!getUser() || !hasDragFiles(e)) return;
       e.preventDefault();
       e.stopPropagation();
 
-      treePaneRef.querySelectorAll(".cms-drop-target").forEach((el) =>
+      cmsPaneRef.querySelectorAll(".cms-drop-target").forEach((el) =>
         el.classList.remove("cms-drop-target")
       );
       treeContainer.classList.remove("cms-drop-target");
@@ -185,21 +272,21 @@ export const initCmsTreeActions = (treePane) => {
 };
 
 export const destroyCmsTreeActions = () => {
-  if (abortController) {
-    abortController.abort();
-    abortController = null;
+  if (cmsAbort) {
+    cmsAbort.abort();
+    cmsAbort = null;
   }
 
-  if (itemObserver) {
-    itemObserver.disconnect();
-    itemObserver = null;
+  if (cmsObserver) {
+    cmsObserver.disconnect();
+    cmsObserver = null;
   }
 
-  if (treeContainerRef) {
-    removeAllActions(treeContainerRef);
-    treeContainerRef.classList.remove("cms-drop-target");
-    treeContainerRef = null;
+  if (cmsTreeRef) {
+    removeAllCmsActions(cmsTreeRef);
+    cmsTreeRef.classList.remove("cms-drop-target");
+    cmsTreeRef = null;
   }
 
-  treePaneRef = null;
+  cmsPaneRef = null;
 };
