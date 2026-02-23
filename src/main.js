@@ -9,9 +9,10 @@ import { initTree, renderTree } from "./tree.js";
 import { setupTreeDelegation } from "./tree-interaction.js";
 import { startPassiveLoading } from "./passive-loader.js";
 import { showError } from "./error.js";
+import { setModalContainer } from "./modal.js";
 import { initAuthUI } from "./auth-ui.js";
-import { initCmsUI, addCmsContextMenu } from "./cms-ui.js";
-import { isAdmin, onAuthChange } from "./auth.js";
+import { addCmsContextMenu } from "./cms-ui.js";
+import { onAuthChange } from "./auth.js";
 import { initDownloadButtons, initCmsTreeActions, destroyCmsTreeActions } from "./cms-toolbar.js";
 
 const init = async (treeContainer) => {
@@ -51,9 +52,11 @@ document.addEventListener("DOMContentLoaded", () => {
   // Download buttons for all users
   initDownloadButtons(treeContainer);
 
+  // Shared modal container
+  setModalContainer(modalContainer);
+
   // Auth and CMS
-  initAuthUI(siteHeader, modalContainer);
-  initCmsUI(modalContainer);
+  initAuthUI(siteHeader);
   addCmsContextMenu(treeContainer);
 
   // Tree refresh after publish
@@ -66,13 +69,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Per-item tree actions and admin on auth change
+  // Per-item tree actions on auth change
   onAuthChange((user) => {
     if (user) {
       initCmsTreeActions(treePane);
-      if (isAdmin()) {
-        import("./admin-ui.js").then((m) => m.initAdminUI(modalContainer));
-      }
     } else {
       destroyCmsTreeActions();
     }

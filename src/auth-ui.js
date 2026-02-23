@@ -11,43 +11,9 @@ import {
   resetWithOTP,
 } from "./auth.js";
 import { CMS_API_URL } from "./config.js";
+import { createModal, closeModal } from "./modal.js";
 
-let modalContainer;
 let authButton;
-
-const createModal = (title, contentHTML) => {
-  modalContainer.innerHTML = "";
-  const overlay = document.createElement("div");
-  overlay.className = "modal-overlay";
-  overlay.addEventListener("click", (e) => {
-    if (e.target === overlay) closeModal();
-  });
-
-  const modal = document.createElement("div");
-  modal.className = "modal";
-  modal.innerHTML = `
-    <div class="modal-header">
-      <h2 class="modal-title">${title}</h2>
-      <button class="modal-close" aria-label="Close">&times;</button>
-    </div>
-    <div class="modal-body">${contentHTML}</div>
-  `;
-  modal.querySelector(".modal-close").addEventListener("click", closeModal);
-
-  overlay.appendChild(modal);
-  modalContainer.appendChild(overlay);
-  modalContainer.hidden = false;
-
-  const firstInput = modal.querySelector("input");
-  if (firstInput) firstInput.focus();
-
-  return modal;
-};
-
-const closeModal = () => {
-  modalContainer.innerHTML = "";
-  modalContainer.hidden = true;
-};
 
 const randomPassword = () => {
   const buf = new Uint8Array(24);
@@ -440,9 +406,7 @@ const showUserMenu = () => {
   }
 };
 
-export const initAuthUI = (headerEl, modalContainerEl) => {
-  modalContainer = modalContainerEl;
-
+export const initAuthUI = (headerEl) => {
   // Create auth button in header
   authButton = document.createElement("button");
   authButton.id = "auth-btn";

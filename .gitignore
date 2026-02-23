@@ -2,6 +2,7 @@
 node_modules
 dist
 .env
+contents/
 cdn-worker/.wrangler
 cms-worker/.wrangler
 cms-worker/seed_roster.sql

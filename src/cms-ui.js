@@ -1,62 +1,6 @@
-import { getUser, isAdmin } from "./auth.js";
-import { CMS_API_URL } from "./config.js";
-
-const esc = (s) => {
-  const d = document.createElement("div");
-  d.textContent = s;
-  return d.innerHTML;
-};
-
-const apiUrl = (path) => `${CMS_API_URL || ""}${path}`;
-
-const apiFetch = (path, opts = {}) =>
-  fetch(apiUrl(path), {
-    credentials: "include",
-    headers: { "Content-Type": "application/json", ...opts.headers },
-    ...opts,
-  });
-
-let modalContainer;
-
-export const initCmsUI = (modalContainerEl) => {
-  modalContainer = modalContainerEl;
-};
-
-const createModal = (title, contentHTML) => {
-  modalContainer.innerHTML = "";
-  const overlay = document.createElement("div");
-  overlay.className = "modal-overlay";
-  overlay.addEventListener("click", (e) => {
-    if (e.target === overlay) closeModal();
-  });
-
-  const modal = document.createElement("div");
-  modal.className = "modal";
-  modal.innerHTML = `
-    <div class="modal-header">
-      <h2 class="modal-title">${title}</h2>
-      <button class="modal-close" aria-label="Close">&times;</button>
-    </div>
-    <div class="modal-body">${contentHTML}</div>
-  `;
-  modal.querySelector(".modal-close").addEventListener("click", closeModal);
-
-  overlay.appendChild(modal);
-  modalContainer.appendChild(overlay);
-  modalContainer.hidden = false;
-  return modal;
-};
-
-const closeModal = () => {
-  modalContainer.innerHTML = "";
-  modalContainer.hidden = true;
-};
-
-const formatFileSize = (bytes) => {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-};
+import { getUser } from "./auth.js";
+import { esc, createModal, closeModal } from "./modal.js";
+import { apiUrl, apiFetch, formatFileSize } from "./api.js";
 
 // Multi-file upload modal
 export const showMultiUploadForm = (targetDirectory = "/contents", preloadedFiles = []) => {
