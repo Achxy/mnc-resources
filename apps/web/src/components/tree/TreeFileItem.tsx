@@ -15,7 +15,7 @@ export const TreeFileItem = (props: TreeFileItemProps) => {
 
 	return (
 		<li
-			class={`${s.treeItem} ${props.index % 2 === 0 ? s.stripedOdd : s.stripedEven}`}
+			class={`${s.treeItem} tree-item ${props.index % 2 === 0 ? s.stripedOdd : s.stripedEven}`}
 			role="treeitem"
 			data-path={props.node.path}
 			data-node-json={JSON.stringify(props.node)}

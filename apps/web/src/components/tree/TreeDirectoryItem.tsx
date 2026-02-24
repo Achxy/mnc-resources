@@ -25,7 +25,7 @@ export const TreeDirectoryItem = (props: TreeDirectoryItemProps) => {
 	return (
 		<>
 			<li
-				class={`${s.treeItem} ${s.folder} ${props.index % 2 === 0 ? s.stripedOdd : s.stripedEven}`}
+				class={`${s.treeItem} tree-item ${s.folder} ${props.index % 2 === 0 ? s.stripedOdd : s.stripedEven}`}
 				role="treeitem"
 				aria-expanded={expanded()}
 				data-path={props.node.path}
